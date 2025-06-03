@@ -8,18 +8,19 @@ import tempfile
 import base64
 import os
 
-# Suas chaves embutidas (não faça isso em produção)
+# Variáveis de ambiente - defina no seu ambiente local ou servidor
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
 
+# Cliente OpenAI
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Ajuste se quiser
+    allow_origins=["*"],  # Ajuste em produção para domínios específicos
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -34,7 +35,7 @@ class Mensagem(BaseModel):
 def chat_openai(mensagem_texto):
     conversa.append({"role": "user", "content": mensagem_texto})
     resposta = client_openai.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o-mini",  # <-- ATENÇÃO: Substitua por um modelo válido da sua conta, ex: "gpt-4o-mini"
         messages=conversa,
         temperature=0.8,
         max_tokens=200
@@ -44,7 +45,8 @@ def chat_openai(mensagem_texto):
     return texto_resposta
 
 def chat_hf(mensagem_texto):
-    url = "https://api-inference.huggingface.co/models/happening/chatgpt-3.5-turbo"
+    # Exemplo com um modelo Hugging Face público para teste
+    url = "https://api-inference.huggingface.co/models/gpt2"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
         "inputs": mensagem_texto,
@@ -61,6 +63,7 @@ def chat_hf(mensagem_texto):
     return str(resposta_json)
 
 def chat_ai21(mensagem_texto):
+    # Endpoint atualizado para AI21 Studio (confirme na doc AI21 se seu endpoint está correto)
     url = "https://api.ai21.com/studio/v1/j1-large/complete"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}"}
     prompt = f"{mensagem_texto}\n"
@@ -98,7 +101,6 @@ async def chat(mensagem: Mensagem):
             except Exception as e3:
                 print(f"Erro AI21: {e3}")
                 return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. Tente novamente mais tarde. 🙏"}
-
 
 @app.post("/tts")
 async def tts(mensagem: Mensagem):
