@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: jesusinho-backend
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: ./start.sh
+    envVars:
+      - key: OPENAI_API_KEY
+        value: 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
+      - key: HF_API_KEY
+        value: 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
+      - key: AI21_API_KEY
+        value: 876280bd-b6bb-48c1-9821-e1f847daa3c6
