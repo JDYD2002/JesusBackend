@@ -85,16 +85,20 @@ async def chat(mensagem: Mensagem):
     try:
         resposta = chat_openai(texto_usuario)
         return {"resposta": resposta}
-    except Exception:
+    except Exception as e1:
+        print(f"Erro OpenAI: {e1}")
         try:
             resposta = chat_hf(texto_usuario)
             return {"resposta": resposta}
-        except Exception:
+        except Exception as e2:
+            print(f"Erro Hugging Face: {e2}")
             try:
                 resposta = chat_ai21(texto_usuario)
                 return {"resposta": resposta}
-            except Exception:
+            except Exception as e3:
+                print(f"Erro AI21: {e3}")
                 return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. Tente novamente mais tarde. 🙏"}
+
 
 @app.post("/tts")
 async def tts(mensagem: Mensagem):
