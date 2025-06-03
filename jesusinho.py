@@ -9,9 +9,9 @@ import base64
 import os
 
 # Suas chaves embutidas (não faça isso em produção)
-OPENAI_API_KEY = "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"
-HF_API_KEY = "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"
-AI21_API_KEY = "876280bd-b6bb-48c1-9821-e1f847daa3c6"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+HF_API_KEY = os.environ.get("HF_API_KEY")
+AI21_API_KEY = os.environ.get("AI21_API_KEY")
 
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 
