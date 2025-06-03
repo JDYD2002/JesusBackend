@@ -7,7 +7,7 @@ services:
     startCommand: ./start.sh
     envVars:
       - key: OPENAI_API_KEY
-        value: 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
+        value: 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
       - key: HF_API_KEY
         value: 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
       - key: AI21_API_KEY
