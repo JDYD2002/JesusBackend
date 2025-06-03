@@ -1,14 +1,33 @@
-services:
-  - type: web
-    name: jesusinho-backend
-    env: python
-    plan: free
-    buildCommand: ""
-    startCommand: ./start.sh
-    envVars:
-      - key: OPENAI_API_KEY
-        value: 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
-      - key: HF_API_KEY
-        value: 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
-      - key: AI21_API_KEY
-        value: 876280bd-b6bb-48c1-9821-e1f847daa3c6
+name: Deploy API Jesusinho
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      HF_API_KEY: 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
+      AI21_API_KEY: 876280bd-b6bb-48c1-9821-e1f847daa3c6
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run your deployment script
+        run: |
+          echo "Chaves configuradas!"
