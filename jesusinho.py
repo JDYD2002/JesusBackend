@@ -53,11 +53,9 @@ def chat_hf(mensagem_texto):
     resp = requests.post(url, json=payload, headers=headers, timeout=15)
     resp.raise_for_status()
     resposta_json = resp.json()
-    # A resposta da HF pode ser diferente; ajuste conforme necessário:
     if isinstance(resposta_json, dict) and "error" in resposta_json:
         raise Exception(resposta_json["error"])
     if isinstance(resposta_json, list):
-        # normal return de texto
         texto = resposta_json[0].get("generated_text", "").strip()
         return texto
     return str(resposta_json)
@@ -111,3 +109,7 @@ async def tts(mensagem: Mensagem):
         return {"audio_b64": audio_b64}
     except Exception as e:
         return {"audio_b64": None, "erro": str(e)}
+
+@app.get("/")
+async def raiz():
+    return {"mensagem": "API Jesusinho está rodando! 🌟"}
