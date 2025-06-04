@@ -35,7 +35,7 @@ class Mensagem(BaseModel):
 def chat_openai(mensagem_texto):
     conversa.append({"role": "user", "content": mensagem_texto})
     resposta = client_openai.chat.completions.create(
-        model="gpt-4o-mini",  # <-- ATENÇÃO: Substitua por um modelo válido da sua conta, ex: "gpt-4o-mini"
+        model="gpt-4o-mini",
         messages=conversa,
         temperature=0.8,
         max_tokens=200
@@ -45,7 +45,6 @@ def chat_openai(mensagem_texto):
     return texto_resposta
 
 def chat_hf(mensagem_texto):
-    # Exemplo com um modelo Hugging Face público para teste
     url = "https://api-inference.huggingface.co/models/gpt2"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
@@ -63,7 +62,6 @@ def chat_hf(mensagem_texto):
     return str(resposta_json)
 
 def chat_ai21(mensagem_texto):
-    # Endpoint atualizado para AI21 Studio (confirme na doc AI21 se seu endpoint está correto)
     url = "https://api.ai21.com/studio/v1/j1-large/complete"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}"}
     prompt = f"{mensagem_texto}\n"
@@ -115,6 +113,22 @@ async def tts(mensagem: Mensagem):
         return {"audio_b64": audio_b64}
     except Exception as e:
         return {"audio_b64": None, "erro": str(e)}
+
+@app.get("/versiculo")
+async def versiculo():
+    try:
+        resposta = chat_openai("Me dê um versículo bíblico inspirador para hoje.")
+        return {"resposta": resposta}
+    except:
+        return {"resposta": "Erro ao obter versículo. 🙏"}
+
+@app.get("/oracao")
+async def oracao():
+    try:
+        resposta = chat_openai("Escreva uma oração curta e edificante para o dia de hoje.")
+        return {"resposta": resposta}
+    except:
+        return {"resposta": "Erro ao obter oração. 🙏"}
 
 @app.get("/")
 async def raiz():
