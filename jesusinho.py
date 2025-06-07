@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
+from ai21 import AI21Client
+from ai21.models.chat import ChatMessage, ResponseFormat
 import requests
 from gtts import gTTS
 import tempfile
@@ -13,7 +15,9 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
 
+# Clientes
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
+client_ai21 = AI21Client(api_key=AI21_API_KEY)
 
 app = FastAPI()
 
@@ -26,7 +30,7 @@ app.add_middleware(
 
 # Prompt espiritual e bíblico
 conversa = [
-    {"role": "system", "content":
+    {"role": "system", "content": 
         "Você é Jesus Cristo, o Filho do Deus Vivo. Fale sempre com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência. ✝️📖✨"
     }
 ]
@@ -34,6 +38,7 @@ conversa = [
 class Mensagem(BaseModel):
     texto: str
 
+# === OPENAI ===
 def chat_openai(mensagem_texto):
     conversa.append({"role": "user", "content": mensagem_texto})
     resposta = client_openai.chat.completions.create(
@@ -46,8 +51,9 @@ def chat_openai(mensagem_texto):
     conversa.append({"role": "assistant", "content": texto_resposta})
     return texto_resposta
 
+# === HUGGING FACE ===
 def chat_hf(mensagem_texto):
-    url = "https://api-inference.huggingface.co/models/deepseek-ai/DeepSeek-R1-0528"
+    url = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
         "inputs": mensagem_texto,
@@ -61,26 +67,19 @@ def chat_hf(mensagem_texto):
         return texto
     return str(resposta_json)
 
+# === AI21 ===
 def chat_ai21(mensagem_texto):
-    url = "https://api.ai21.com/studio/v1/jamba-large-1.6/completions"
-    headers = {"Authorization": f"Bearer {AI21_API_KEY}"}
-    data = {
-        "prompt": mensagem_texto,
-        "maxTokens": 200,
-        "temperature": 0.8,
-        "topP": 1,
-        "countPenalty": {"scale": 0},
-        "frequencyPenalty": {"scale": 0},
-        "presencePenalty": {"scale": 0},
-        "numResults": 1,
-        "stopSequences": []
-    }
-    resp = requests.post(url, json=data, headers=headers, timeout=30)
-    resp.raise_for_status()
-    resposta_json = resp.json()
-    texto = resposta_json["completions"][0]["data"]["text"].strip()
-    return texto
+    resposta = client_ai21.chat.completions.create(
+        model="jamba-large-1.6",
+        messages=[ChatMessage(role="user", content=mensagem_texto)],
+        max_tokens=200,
+        temperature=0.8,
+        top_p=1,
+        response_format=ResponseFormat(type="text")
+    )
+    return resposta.choices[0].message.content.strip()
 
+# === ROTA /chat ===
 @app.post("/chat")
 async def chat(mensagem: Mensagem):
     texto_usuario = mensagem.texto
@@ -101,6 +100,7 @@ async def chat(mensagem: Mensagem):
                 print(f"Erro AI21: {e3}")
                 return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. Tente novamente mais tarde. 🙏"}
 
+# === TTS (áudio base64) ===
 @app.post("/tts")
 async def tts(mensagem: Mensagem):
     try:
@@ -115,6 +115,7 @@ async def tts(mensagem: Mensagem):
     except Exception as e:
         return {"audio_b64": None, "erro": str(e)}
 
+# === Versículo do Dia ===
 @app.get("/versiculo")
 async def versiculo():
     try:
@@ -123,6 +124,7 @@ async def versiculo():
     except:
         return {"resposta": "Erro ao obter versículo. 🙏"}
 
+# === Oração do Dia ===
 @app.get("/oracao")
 async def oracao():
     try:
@@ -131,6 +133,7 @@ async def oracao():
     except:
         return {"resposta": "Erro ao obter oração. 🙏"}
 
+# === Status ===
 @app.get("/")
 async def raiz():
     return {"mensagem": "API Jesusinho está rodando! 🌟"}
