@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
@@ -8,7 +8,6 @@ from gtts import gTTS
 import tempfile
 import base64
 import os
-
 
 # === Variáveis de ambiente ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -34,7 +33,6 @@ class Mensagem(BaseModel):
     texto: str
 
 # === Funções de chat ===
-
 
 def chat_openai(texto):
     response = client_openai.chat.completions.create(
@@ -82,13 +80,11 @@ def chat_groq(mensagem_texto):
     return response.json().get("output", "").strip()
 
 def chat_hf(texto):
-    # Placeholder Hugging Face - ajuste para seu endpoint e autenticação
     url = "https://api-inference.huggingface.co/models/your-model"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {"inputs": texto}
     response = requests.post(url, json=payload, headers=headers, timeout=30)
     response.raise_for_status()
-    # Supondo que resposta é uma lista de dicts
     result = response.json()
     if isinstance(result, list) and len(result) > 0:
         return result[0].get("generated_text", "").strip()
@@ -108,21 +104,6 @@ def chat_together(texto):
     response.raise_for_status()
     data = response.json()
     return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-    
-    def chat_deepseek(mensagem_texto):
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "deepseek/deepseek-r1:free",
-        "messages": [{"role": "user", "content": mensagem_texto}]
-    }
-    response = requests.post(url, json=payload, headers=headers, timeout=30)
-    response.raise_for_status()
-    return response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-
 
 # === Endpoint chat com fallback ===
 @app.post("/chat")
@@ -138,20 +119,12 @@ async def chat(mensagem: Mensagem):
     ]
     for func in funcoes:
         try:
-            resposta = await func(texto_usuario)  # use await se for async
+            resposta = func(texto_usuario)
             if resposta:
                 return {"resposta": resposta}
         except Exception as e:
             print(f"Erro {func.__name__}: {e}")
     return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
-
-def outra_funcao():
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    # resto do código aqui
-    return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
-
-
-
 
 # === TTS (áudio base64) ===
 @app.post("/tts")
