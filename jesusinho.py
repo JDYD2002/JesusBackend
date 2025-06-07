@@ -15,8 +15,6 @@ import os
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
-# DEEPSEEK_API_KEY não mais necessária para uso local
-# DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 client_ai21 = AI21Client(api_key=AI21_API_KEY)
@@ -45,15 +43,11 @@ pipe_deepseek = pipeline("text-generation", model="deepseek-ai/DeepSeek-R1-0528"
 # === DEEPSEEK usando transformers pipeline local ===
 async def chat_deepseek(mensagem_texto):
     prompt = f"User: {mensagem_texto}\nAssistant:"
-
     resultados = pipe_deepseek(prompt, max_length=200, do_sample=True, temperature=0.8)
-
     resposta_texto = resultados[0]["generated_text"]
     resposta_texto = resposta_texto[len(prompt):].strip()
-
     conversa.append({"role": "user", "content": mensagem_texto})
     conversa.append({"role": "assistant", "content": resposta_texto})
-
     return resposta_texto
 
 # === OPENAI ===
@@ -85,8 +79,8 @@ def chat_hf(mensagem_texto):
     return str(resposta_json)
 
 # === AI21 ===
-def chat_ai21(mensagem_texto):
-    resposta = client_ai21.chat.completions.create(
+async def chat_ai21(mensagem_texto):
+    resposta = await client_ai21.chat.completions.acreate(
         model="jamba-large",
         messages=[ChatMessage(role="user", content=mensagem_texto)],
         max_tokens=200,
@@ -116,7 +110,7 @@ async def chat(mensagem: Mensagem):
             except Exception as e3:
                 print(f"Erro Hugging Face: {e3}")
                 try:
-                    resposta = chat_ai21(texto_usuario)
+                    resposta = await chat_ai21(texto_usuario)
                     return {"resposta": resposta}
                 except Exception as e4:
                     print(f"Erro AI21: {e4}")
