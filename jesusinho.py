@@ -5,7 +5,8 @@ import os
 import requests
 import openai
 from openai import OpenAI
-from openai.exceptions import RateLimitError
+# import openai.exceptions  # removido
+
 from gtts import gTTS
 import tempfile
 import base64
@@ -15,10 +16,9 @@ import time
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AI21_API_KEY = os.getenv("AI21_API_KEY")
 HF_API_KEY = os.getenv("HF_API_KEY")
-HF_MODEL = os.getenv("HF_MODEL", "google/gemma-3n-E4B-it-litert-preview")  # Modelo correto
+HF_MODEL = os.getenv("HF_MODEL", "google/gemma-3n-E4B-it-litert-preview")
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-# Configurar cliente OpenAI
 openai.api_key = OPENAI_API_KEY
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -33,8 +33,6 @@ app.add_middleware(
 class Mensagem(BaseModel):
     texto: str
 
-# === Funções de chat ===
-
 def chat_openai(texto, retries=3):
     for i in range(retries):
         try:
@@ -43,9 +41,9 @@ def chat_openai(texto, retries=3):
                 messages=[{"role": "user", "content": texto}]
             )
             return resp.choices[0].message.content.strip()
-        except RateLimitError as e:
-            print(f"Rate limit no OpenAI gpt-4o-mini, tentativa {i+1}/{retries}: {e}")
-            time.sleep(5)  # espera 5s antes de tentar novamente
+        except Exception as e:
+            print(f"Erro no OpenAI gpt-4o-mini, tentativa {i+1}/{retries}: {e}")
+            time.sleep(5)
     # Fallback para gpt-3.5-turbo
     try:
         resp = client_openai.chat.completions.create(
@@ -56,6 +54,7 @@ def chat_openai(texto, retries=3):
     except Exception as e:
         print(f"Erro fallback OpenAI gpt-3.5-turbo: {e}")
         return ""
+
 
 # Removidas funções chat_fireworks e chat_groq devido a erros DNS
 
