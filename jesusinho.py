@@ -10,13 +10,15 @@ import base64
 import os
 
 # === Variáveis de ambiente ===
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-HF_API_KEY = os.environ.get("HF_API_KEY")
-AI21_API_KEY = os.environ.get("AI21_API_KEY")
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+HF_API_KEY = os.getenv("HF_API_KEY")
+AI21_API_KEY = os.getenv("AI21_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 client_ai21 = AI21Client(api_key=AI21_API_KEY)
+together_client = Together(api_key=TOGETHER_API_KEY)
 
 app = FastAPI()
 
@@ -37,7 +39,25 @@ conversa = [
 class Mensagem(BaseModel):
     texto: str
 
-# === DeepSeek API oficial ===
+# === DeepSeek ===
+def chat_deepseek(texto):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "deepseek-chat",
+        "messages": conversa + [{"role": "user", "content": texto}],
+        "temperature": 0.8,
+        "max_tokens": 200
+    }
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    resposta_texto = response.json()["choices"][0]["message"]["content"]
+    conversa.append({"role": "user", "content": texto})
+    conversa.append({"role": "assistant", "content": resposta_texto})
+    return resposta_texto.strip()
 
 # === OpenAI ===
 def chat_openai(mensagem_texto):
@@ -54,12 +74,12 @@ def chat_openai(mensagem_texto):
 
 # === AI21 ===
 def chat_ai21(mensagem_texto):
-resposta = client_ai21.complete(
-    model="j1-large",
-    prompt=mensagem_texto,
-    maxTokens=200,
-    temperature=0.8
-)
+    resposta = client_ai21.complete(
+        model="j1-large",
+        prompt=mensagem_texto,
+        maxTokens=200,
+        temperature=0.8
+    )
     return resposta['completions'][0]['data']['text'].strip()
 
 # === Hugging Face ===
@@ -76,6 +96,15 @@ def chat_hf(mensagem_texto):
     if isinstance(resposta_json, list):
         return resposta_json[0].get("generated_text", "").strip()
     return str(resposta_json)
+
+# === Together AI ===
+def chat_together(mensagem_texto):
+    resp = together_client.chat.completions.create(
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+        messages=[{"role": "user", "content": mensagem_texto}],
+        stream=False,
+    )
+    return resp.choices[0].message.content.strip()
 
 # === ROTA PRINCIPAL ===
 @app.post("/chat")
