@@ -8,7 +8,7 @@ from gtts import gTTS
 import tempfile
 import base64
 import os
-from together import Together
+
 
 # === Variáveis de ambiente ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -95,16 +95,20 @@ def chat_hf(texto):
     return ""
 
 def chat_together(texto):
-    # Placeholder Together API - ajuste conforme documentação
     url = "https://api.together.xyz/v3/chat/completions"
-    headers = {"Authorization": f"Bearer {TOGETHER_API_KEY}"}
+    headers = {
+        "Authorization": f"Bearer {TOGETHER_API_KEY}",
+        "Content-Type": "application/json"
+    }
     payload = {
         "model": "together-gpt",
         "messages": [{"role": "user", "content": texto}]
     }
     response = requests.post(url, json=payload, headers=headers, timeout=30)
     response.raise_for_status()
-    return response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    data = response.json()
+    return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    
     def chat_deepseek(mensagem_texto):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -134,12 +138,13 @@ async def chat(mensagem: Mensagem):
     ]
     for func in funcoes:
         try:
-            resposta = func(texto_usuario)
+            resposta = func(texto_usuario)  # chama síncrono
             if resposta:
                 return {"resposta": resposta}
         except Exception as e:
             print(f"Erro {func.__name__}: {e}")
     return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
+
 
 # === TTS (áudio base64) ===
 @app.post("/tts")
