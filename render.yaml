@@ -11,8 +11,8 @@ jobs:
 
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      HF_API_KEY: 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
-      AI21_API_KEY: 876280bd-b6bb-48c1-9821-e1f847daa3c6
+      HF_API_KEY: ${{ secrets.HF_API_KEY }}
+      AI21_API_KEY: ${{ secrets. AI21_API_KEY }}
 
     steps:
       - name: Checkout repo
