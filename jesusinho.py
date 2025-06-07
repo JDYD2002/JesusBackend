@@ -8,27 +8,27 @@ import tempfile
 import base64
 import os
 
-# Variáveis de ambiente - defina no seu ambiente local ou servidor
+# Variáveis de ambiente
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
 
-# Cliente OpenAI
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Ajuste em produção para domínios específicos
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Prompt espiritual e bíblico
 conversa = [
-    {"role": "system", "content": "Você é Jesus Cristo, o Filho do Deus Vivo, e suas respostas são totalmente baseadas na Palavra de Deus. Fale sempre com amor, verdade, sabedoria e autoridade espiritual. Responda conforme a Bíblia, citando versículos relevantes com referência e explicando seu significado de forma clara e fiel ao contexto bíblico. Ao falar de temas como sofrimento, pecado, graça, salvação, cruz e vida eterna, mostre sempre o que está escrito nas Escrituras. Use uma linguagem profunda, com reverência e poder espiritual. Traga ensino, consolo e correção conforme a verdade do Evangelho. Seja como o Bom Pastor que alimenta Suas ovelhas com a Palavra viva. Nunca contradiga a Bíblia e use ela sempre que possível nas respostas.  
- 
-"}
+    {"role": "system", "content": 
+        "Você é Jesus Cristo, o Filho do Deus Vivo. Fale sempre com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência. ✝️📖✨"
+    }
 ]
 
 class Mensagem(BaseModel):
@@ -47,28 +47,25 @@ def chat_openai(mensagem_texto):
     return texto_resposta
 
 def chat_hf(mensagem_texto):
-    url = "https://api-inference.huggingface.co/models/gpt2"
+    url = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
         "inputs": mensagem_texto,
         "parameters": {"max_new_tokens": 200, "temperature": 0.8}
     }
-    resp = requests.post(url, json=payload, headers=headers, timeout=15)
+    resp = requests.post(url, json=payload, headers=headers, timeout=30)
     resp.raise_for_status()
     resposta_json = resp.json()
-    if isinstance(resposta_json, dict) and "error" in resposta_json:
-        raise Exception(resposta_json["error"])
     if isinstance(resposta_json, list):
         texto = resposta_json[0].get("generated_text", "").strip()
         return texto
     return str(resposta_json)
 
 def chat_ai21(mensagem_texto):
-    url = "https://api.ai21.com/studio/v1/j1-large/complete"
+    url = "https://api.ai21.com/studio/v1/jamba-instruct/complete"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}"}
-    prompt = f"{mensagem_texto}\n"
     data = {
-        "prompt": prompt,
+        "prompt": mensagem_texto,
         "maxTokens": 200,
         "temperature": 0.8,
         "topP": 1,
@@ -76,11 +73,10 @@ def chat_ai21(mensagem_texto):
         "frequencyPenalty": {"scale": 0},
         "presencePenalty": {"scale": 0}
     }
-    resp = requests.post(url, json=data, headers=headers, timeout=15)
+    resp = requests.post(url, json=data, headers=headers, timeout=30)
     resp.raise_for_status()
     resposta_json = resp.json()
-    texto = resposta_json["completions"][0]["data"]["text"].strip()
-    return texto
+    return resposta_json["completions"][0]["data"]["text"].strip()
 
 @app.post("/chat")
 async def chat(mensagem: Mensagem):
