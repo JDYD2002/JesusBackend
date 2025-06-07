@@ -5,6 +5,7 @@ from openai import OpenAI
 from ai21 import AI21Client
 from ai21.models.chat import ChatMessage, ResponseFormat
 import requests
+import httpx
 from gtts import gTTS
 import tempfile
 import base64
@@ -14,8 +15,8 @@ import os
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
-# Clientes
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 client_ai21 = AI21Client(api_key=AI21_API_KEY)
 
@@ -28,15 +29,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Prompt espiritual e bíblico
 conversa = [
-    {"role": "system", "content": 
+    {"role": "system", "content":
         "Você é Jesus Cristo, o Filho do Deus Vivo. Fale sempre com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência. ✝️📖✨"
     }
 ]
 
 class Mensagem(BaseModel):
     texto: str
+
+# === DEEPSEEK ===
+async def chat_deepseek(mensagem_texto):
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": "deepseek-chat",  # ou deepseek-coder se preferir
+        "messages": conversa + [{"role": "user", "content": mensagem_texto}],
+        "temperature": 0.8
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            response.raise_for_status()
+            data = response.json()
+            resposta_texto = data["choices"][0]["message"]["content"]
+            conversa.append({"role": "user", "content": mensagem_texto})
+            conversa.append({"role": "assistant", "content": resposta_texto})
+            return resposta_texto
+    except Exception as e:
+        print(f"Erro DeepSeek: {e}")
+        raise
 
 # === OPENAI ===
 def chat_openai(mensagem_texto):
@@ -63,14 +94,13 @@ def chat_hf(mensagem_texto):
     resp.raise_for_status()
     resposta_json = resp.json()
     if isinstance(resposta_json, list):
-        texto = resposta_json[0].get("generated_text", "").strip()
-        return texto
+        return resposta_json[0].get("generated_text", "").strip()
     return str(resposta_json)
 
 # === AI21 ===
 def chat_ai21(mensagem_texto):
     resposta = client_ai21.chat.completions.create(
-        model="jamba-large-1.6",
+        model="jamba-large",
         messages=[ChatMessage(role="user", content=mensagem_texto)],
         max_tokens=200,
         temperature=0.8,
@@ -79,26 +109,31 @@ def chat_ai21(mensagem_texto):
     )
     return resposta.choices[0].message.content.strip()
 
-# === ROTA /chat ===
+# === ROTA PRINCIPAL ===
 @app.post("/chat")
 async def chat(mensagem: Mensagem):
     texto_usuario = mensagem.texto
     try:
-        resposta = chat_openai(texto_usuario)
+        resposta = await chat_deepseek(texto_usuario)
         return {"resposta": resposta}
     except Exception as e1:
-        print(f"Erro OpenAI: {e1}")
+        print(f"Erro DeepSeek: {e1}")
         try:
-            resposta = chat_hf(texto_usuario)
+            resposta = chat_openai(texto_usuario)
             return {"resposta": resposta}
         except Exception as e2:
-            print(f"Erro Hugging Face: {e2}")
+            print(f"Erro OpenAI: {e2}")
             try:
-                resposta = chat_ai21(texto_usuario)
+                resposta = chat_hf(texto_usuario)
                 return {"resposta": resposta}
             except Exception as e3:
-                print(f"Erro AI21: {e3}")
-                return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. Tente novamente mais tarde. 🙏"}
+                print(f"Erro Hugging Face: {e3}")
+                try:
+                    resposta = chat_ai21(texto_usuario)
+                    return {"resposta": resposta}
+                except Exception as e4:
+                    print(f"Erro AI21: {e4}")
+                    return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. Tente novamente mais tarde. 🙏"}
 
 # === TTS (áudio base64) ===
 @app.post("/tts")
@@ -119,7 +154,7 @@ async def tts(mensagem: Mensagem):
 @app.get("/versiculo")
 async def versiculo():
     try:
-        resposta = chat_openai("Me dê um versículo bíblico inspirador para hoje.")
+        resposta = await chat_deepseek("Me dê um versículo bíblico inspirador para hoje.")
         return {"resposta": resposta}
     except:
         return {"resposta": "Erro ao obter versículo. 🙏"}
@@ -128,7 +163,7 @@ async def versiculo():
 @app.get("/oracao")
 async def oracao():
     try:
-        resposta = chat_openai("Escreva uma oração curta e edificante para o dia de hoje.")
+        resposta = await chat_deepseek("Escreva uma oração curta e edificante para o dia de hoje.")
         return {"resposta": resposta}
     except:
         return {"resposta": "Erro ao obter oração. 🙏"}
@@ -136,4 +171,4 @@ async def oracao():
 # === Status ===
 @app.get("/")
 async def raiz():
-    return {"mensagem": "API Jesusinho está rodando! 🌟"}
+    return {"mensagem": "API Jesusinho está rodando com DeepSeek! 🙌"}
