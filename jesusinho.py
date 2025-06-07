@@ -1,9 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from ai21 import AI21Client
-from ai21.models.chat import ChatMessage, ResponseFormat
 import requests
 from transformers import pipeline
 from gtts import gTTS
@@ -15,7 +14,6 @@ import os
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 client_ai21 = AI21Client(api_key=AI21_API_KEY)
@@ -38,12 +36,12 @@ conversa = [
 class Mensagem(BaseModel):
     texto: str
 
-# === PIPELINE LOCAL USANDO DISTILGPT2 (RODA EM CPU) ===
-pipe_deepseek = pipeline("text-generation", model="distilgpt2")
+# === PIPELINE LOCAL (fallback final) ===
+pipe_local = pipeline("text-generation", model="distilgpt2")
 
-async def chat_deepseek(mensagem_texto):
+async def chat_local(mensagem_texto):
     prompt = f"User: {mensagem_texto}\nAssistant:"
-    resultados = pipe_deepseek(prompt, max_length=200, do_sample=True, temperature=0.8)
+    resultados = pipe_local(prompt, max_length=200, do_sample=True, temperature=0.8)
     resposta_texto = resultados[0]["generated_text"]
     resposta_texto = resposta_texto[len(prompt):].strip()
     conversa.append({"role": "user", "content": mensagem_texto})
@@ -52,21 +50,24 @@ async def chat_deepseek(mensagem_texto):
 
 # === OPENAI ===
 def chat_openai(mensagem_texto):
-    conversa.append({"role": "user", "content": mensagem_texto})
-    resposta = client_openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=conversa,
-        temperature=0.8,
-        max_tokens=200
-    )
-    texto_resposta = resposta.choices[0].message.content.strip()
-    conversa.append({"role": "assistant", "content": texto_resposta})
-    return texto_resposta
+    try:
+        conversa.append({"role": "user", "content": mensagem_texto})
+        resposta = client_openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=conversa,
+            temperature=0.8,
+            max_tokens=200
+        )
+        texto_resposta = resposta.choices[0].message.content.strip()
+        conversa.append({"role": "assistant", "content": texto_resposta})
+        return texto_resposta
+    except RateLimitError as e:
+        raise Exception("Limite de uso da OpenAI atingido") from e
 
 # === AI21 ===
 def chat_ai21(mensagem_texto):
     resposta = client_ai21.complete(
-        model="j1-large",
+        model="j2-ultra",
         prompt=mensagem_texto,
         maxTokens=200,
         temperature=0.8
@@ -75,7 +76,7 @@ def chat_ai21(mensagem_texto):
 
 # === HUGGING FACE ===
 def chat_hf(mensagem_texto):
-    url = "https://api-inference.huggingface.co/models/gpt2"  # modelo público para teste
+    url = "https://api-inference.huggingface.co/models/gpt2"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
         "inputs": mensagem_texto,
@@ -93,26 +94,26 @@ def chat_hf(mensagem_texto):
 async def chat(mensagem: Mensagem):
     texto_usuario = mensagem.texto
     try:
-        resposta = await chat_deepseek(texto_usuario)
+        resposta = chat_openai(texto_usuario)
         return {"resposta": resposta}
     except Exception as e1:
-        print(f"Erro DeepSeek: {e1}")
+        print(f"Erro OpenAI: {e1}")
         try:
-            resposta = chat_openai(texto_usuario)
+            resposta = chat_ai21(texto_usuario)
             return {"resposta": resposta}
         except Exception as e2:
-            print(f"Erro OpenAI: {e2}")
+            print(f"Erro AI21: {e2}")
             try:
                 resposta = chat_hf(texto_usuario)
                 return {"resposta": resposta}
             except Exception as e3:
                 print(f"Erro Hugging Face: {e3}")
                 try:
-                    resposta = chat_ai21(texto_usuario)
+                    resposta = await chat_local(texto_usuario)
                     return {"resposta": resposta}
                 except Exception as e4:
-                    print(f"Erro AI21: {e4}")
-                    return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. Tente novamente mais tarde. 🙏"}
+                    print(f"Erro modelo local: {e4}")
+                    return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
 
 # === TTS (áudio base64) ===
 @app.post("/tts")
@@ -133,7 +134,7 @@ async def tts(mensagem: Mensagem):
 @app.get("/versiculo")
 async def versiculo():
     try:
-        resposta = await chat_deepseek("Me dê um versículo bíblico inspirador para hoje.")
+        resposta = chat_openai("Me dê um versículo bíblico inspirador para hoje.")
         return {"resposta": resposta}
     except:
         return {"resposta": "Erro ao obter versículo. 🙏"}
@@ -142,7 +143,7 @@ async def versiculo():
 @app.get("/oracao")
 async def oracao():
     try:
-        resposta = await chat_deepseek("Escreva uma oração curta e edificante para o dia de hoje.")
+        resposta = chat_openai("Escreva uma oração curta e edificante para o dia de hoje.")
         return {"resposta": resposta}
     except:
         return {"resposta": "Erro ao obter oração. 🙏"}
@@ -150,4 +151,4 @@ async def oracao():
 # === Status ===
 @app.get("/")
 async def raiz():
-    return {"mensagem": "API Jesusinho está rodando com DeepSeek (distilgpt2) em CPU! 🙌"}
+    return {"mensagem": "API Jesusinho está rodando com fallback OpenAI → AI21 → HF → Local ✝️"}
