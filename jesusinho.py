@@ -48,11 +48,12 @@ TOGETHER_MODELS = [
 ]
 
 def chat_openai(texto, retries=3):
+    prompt = f"Responda em português, por favor:\n{texto}"
     for i in range(retries):
         try:
             resp = client_openai.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[{"role": "user", "content": texto}]
+                messages=[{"role": "user", "content": prompt}]
             )
             return resp.choices[0].message.content.strip()
         except Exception as e:
@@ -61,7 +62,7 @@ def chat_openai(texto, retries=3):
     try:
         resp = client_openai.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": texto}]
+            messages=[{"role": "user", "content": prompt}]
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
@@ -69,8 +70,9 @@ def chat_openai(texto, retries=3):
         return ""
 
 def chat_hf(texto):
+    prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    payload = {"inputs": texto}
+    payload = {"inputs": prompt}
     for model in HF_MODELS:
         try:
             url = f"https://api-inference.huggingface.co/models/{model}"
@@ -86,12 +88,13 @@ def chat_hf(texto):
     return ""
 
 def chat_ai21(texto):
+    prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}", "Content-Type": "application/json"}
     for model in AI21_MODELS:
         try:
             url = f"https://api.ai21.com/studio/v1/{model}/complete"
             payload = {
-                "prompt": texto,
+                "prompt": prompt,
                 "numResults": 1,
                 "maxTokens": 200,
                 "temperature": 0.7,
@@ -108,13 +111,14 @@ def chat_ai21(texto):
     return ""
 
 def chat_together(texto):
+    prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {TOGETHER_API_KEY}", "Content-Type": "application/json"}
     for model in TOGETHER_MODELS:
         try:
             url = "https://api.together.xyz/v1/chat/completions"
             payload = {
                 "model": model,
-                "messages": [{"role": "user", "content": texto}],
+                "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 200,
                 "temperature": 0.7,
             }
@@ -128,6 +132,7 @@ def chat_together(texto):
             print(f"Erro chat_together modelo {model}: {e}")
             continue
     return ""
+
 
 @app.post("/chat")
 async def chat_endpoint(mensagem: Mensagem):
@@ -156,19 +161,31 @@ async def tts(mensagem: Mensagem):
 
 @app.get("/versiculo")
 async def versiculo():
+    prompt = (
+        "Responda em português, por favor.\n"
+        "Me dê um versículo bíblico inspirador para hoje, "
+        "que seja diferente dos anteriores. "
+        "Seja criativo e inspirador."
+    )
     try:
-        return {"resposta": chat_openai("Me dê um versículo bíblico inspirador para hoje.")}
+        return {"resposta": chat_openai(prompt)}
     except Exception as e:
         print(f"Erro versiculo: {e}")
         return {"resposta": "Erro ao obter versículo. 🙏"}
 
 @app.get("/oracao")
 async def oracao():
+    prompt = (
+        "Responda em português, por favor.\n"
+        "Escreva uma oração curta e edificante para o dia de hoje, "
+        "que seja diferente das anteriores, com palavras novas e tocantes."
+    )
     try:
-        return {"resposta": chat_openai("Escreva uma oração curta e edificante para o dia de hoje.")}
+        return {"resposta": chat_openai(prompt)}
     except Exception as e:
         print(f"Erro oracao: {e}")
         return {"resposta": "Erro ao obter oração. 🙏"}
+
 
 @app.get("/")
 async def raiz():
