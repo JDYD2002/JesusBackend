@@ -29,9 +29,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run your deployment script
-        run: |
-          echo "Chaves configuradas!"
-          # Aqui você deve colocar o comando para rodar o deploy, por exemplo:
-          # uvicorn main:app --host 0.0.0.0 --port 8000
-          # ou o script que você usar para deploy
+   - name: Run your deployment script
+  run: |
+    uvicorn main:app --host 0.0.0.0 --port 8000
