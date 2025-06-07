@@ -147,8 +147,9 @@ async def chat(mensagem: Mensagem):
 
 def outra_funcao():
     url = "https://openrouter.ai/api/v1/chat/completions"
-    # resto do código aqui, indentado corretamente
+    # resto do código aqui
     return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
+
 
 
 
