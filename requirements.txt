@@ -1,12 +1,10 @@
 fastapi
 uvicorn[standard]
 pydantic
-openai
-ai21
-transformers
-accelerate
+openai>=0.27
 requests
-httpx
 gtts
 python-multipart
+transformers
+accelerate
 torch
