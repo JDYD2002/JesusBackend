@@ -54,12 +54,12 @@ def chat_openai(mensagem_texto):
 
 # === AI21 ===
 def chat_ai21(mensagem_texto):
-    resposta = client_ai21.complete(
-        model="j1-large",
-        prompt=mensagem_texto,
-        maxTokens=200,
-        temperature=0.8
-    )
+resposta = client_ai21.complete(
+    model="j1-large",
+    prompt=mensagem_texto,
+    maxTokens=200,
+    temperature=0.8
+)
     return resposta['completions'][0]['data']['text'].strip()
 
 # === Hugging Face ===
