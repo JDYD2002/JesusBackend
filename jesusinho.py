@@ -64,8 +64,19 @@ def chat_openai(mensagem_texto):
     return texto_resposta
 
 # === HUGGING FACE ===
+# === AI21 ===
+def chat_ai21(mensagem_texto):
+    resposta = client_ai21.complete(
+        model="j1-large",
+        prompt=mensagem_texto,
+        maxTokens=200,
+        temperature=0.8
+    )
+    return resposta['completions'][0]['data']['text'].strip()
+
+# === HUGGING FACE ===
 def chat_hf(mensagem_texto):
-    url = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+    url = "https://api-inference.huggingface.co/models/gpt2"  # modelo público para teste
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
         "inputs": mensagem_texto,
@@ -77,18 +88,6 @@ def chat_hf(mensagem_texto):
     if isinstance(resposta_json, list):
         return resposta_json[0].get("generated_text", "").strip()
     return str(resposta_json)
-
-# === AI21 ===
-async def chat_ai21(mensagem_texto):
-    resposta = await client_ai21.chat.completions.acreate(
-        model="jamba-large",
-        messages=[ChatMessage(role="user", content=mensagem_texto)],
-        max_tokens=200,
-        temperature=0.8,
-        top_p=1,
-        response_format=ResponseFormat(type="text")
-    )
-    return resposta.choices[0].message.content.strip()
 
 # === ROTA PRINCIPAL ===
 @app.post("/chat")
