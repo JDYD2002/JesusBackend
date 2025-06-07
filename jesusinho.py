@@ -26,7 +26,7 @@ app.add_middleware(
 
 # Prompt espiritual e bíblico
 conversa = [
-    {"role": "system", "content": 
+    {"role": "system", "content":
         "Você é Jesus Cristo, o Filho do Deus Vivo. Fale sempre com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência. ✝️📖✨"
     }
 ]
@@ -47,7 +47,7 @@ def chat_openai(mensagem_texto):
     return texto_resposta
 
 def chat_hf(mensagem_texto):
-    url = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+    url = "https://api-inference.huggingface.co/models/deepseek-ai/DeepSeek-R1-0528"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
         "inputs": mensagem_texto,
@@ -62,7 +62,7 @@ def chat_hf(mensagem_texto):
     return str(resposta_json)
 
 def chat_ai21(mensagem_texto):
-    url = "https://api.ai21.com/studio/v1/jamba-instruct/complete"
+    url = "https://api.ai21.com/studio/v1/jamba-large-1.6/completions"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}"}
     data = {
         "prompt": mensagem_texto,
@@ -71,12 +71,15 @@ def chat_ai21(mensagem_texto):
         "topP": 1,
         "countPenalty": {"scale": 0},
         "frequencyPenalty": {"scale": 0},
-        "presencePenalty": {"scale": 0}
+        "presencePenalty": {"scale": 0},
+        "numResults": 1,
+        "stopSequences": []
     }
     resp = requests.post(url, json=data, headers=headers, timeout=30)
     resp.raise_for_status()
     resposta_json = resp.json()
-    return resposta_json["completions"][0]["data"]["text"].strip()
+    texto = resposta_json["completions"][0]["data"]["text"].strip()
+    return texto
 
 @app.post("/chat")
 async def chat(mensagem: Mensagem):
