@@ -8,6 +8,7 @@ from gtts import gTTS
 import tempfile
 import base64
 import os
+from together import Together
 
 # === Variáveis de ambiente ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
