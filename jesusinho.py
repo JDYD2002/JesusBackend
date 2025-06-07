@@ -15,6 +15,7 @@ import os
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 client_ai21 = AI21Client(api_key=AI21_API_KEY)
