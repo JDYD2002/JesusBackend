@@ -13,6 +13,7 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       HF_API_KEY: ${{ secrets.HF_API_KEY }}
       AI21_API_KEY: ${{ secrets. AI21_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets. DEEPSEEK_API_KEY }}
 
     steps:
       - name: Checkout repo
