@@ -8,3 +8,5 @@ accelerate
 requests
 httpx
 gtts
+python-multipart
+torch
