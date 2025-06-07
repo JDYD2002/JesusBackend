@@ -7,6 +7,8 @@ import tempfile
 import time
 import asyncio
 import httpx
+import shelve
+from datetime import datetime
 from openai import OpenAI
 from gtts import gTTS
 
@@ -71,7 +73,6 @@ async def chat_openai(texto, retries=2):
         except Exception as e:
             print(f"Erro OpenAI gpt-4o-mini tentativa {i+1}: {e}")
             await asyncio.sleep(2)
-    # fallback para gpt-3.5-turbo
     try:
         resp = await client_openai.chat.completions.acreate(
             model="gpt-3.5-turbo",
@@ -182,37 +183,39 @@ async def tts(mensagem: Mensagem):
     except Exception as e:
         return {"audio_b64": None, "erro": str(e)}
 
+# === Funções auxiliares para cache diário ===
+
+def get_hoje():
+    return datetime.now().strftime("%Y-%m-%d")
+
+async def obter_com_cache(chave: str, prompt: str):
+    hoje = get_hoje()
+    cache_key = f"{chave}_{hoje}"
+    with shelve.open("cache") as db:
+        if cache_key in db:
+            return db[cache_key]
+    for func in (chat_openai, chat_hf, chat_ai21, chat_together):
+        try:
+            resposta = await func(prompt)
+            if resposta:
+                with shelve.open("cache") as db:
+                    db[cache_key] = resposta
+                return resposta
+        except Exception as e:
+            print(f"Erro {func.__name__} ao gerar {chave}: {e}")
+    return f"Erro ao obter {chave}. 🙏"
+
 @app.get("/versiculo")
 async def versiculo():
     prompt = "Me dê um versículo bíblico inspirador e diferente para hoje."
-    try:
-        resposta = await chat_openai(prompt)
-        if not resposta:
-            resposta = await chat_hf(prompt)
-        if not resposta:
-            resposta = await chat_ai21(prompt)
-        if not resposta:
-            resposta = await chat_together(prompt)
-        return {"resposta": resposta}
-    except Exception as e:
-        print(f"Erro versiculo: {e}")
-        return {"resposta": "Erro ao obter versículo. 🙏"}
+    resposta = await obter_com_cache("versiculo", prompt)
+    return {"resposta": resposta}
 
 @app.get("/oracao")
 async def oracao():
     prompt = "Oração curta, edificante e diferente para o dia de hoje."
-    try:
-        resposta = await chat_openai(prompt)
-        if not resposta:
-            resposta = await chat_hf(prompt)
-        if not resposta:
-            resposta = await chat_ai21(prompt)
-        if not resposta:
-            resposta = await chat_together(prompt)
-        return {"resposta": resposta}
-    except Exception as e:
-        print(f"Erro oracao: {e}")
-        return {"resposta": "Erro ao obter oração. 🙏"}
+    resposta = await obter_com_cache("oracao", prompt)
+    return {"resposta": resposta}
 
 @app.get("/")
 async def raiz():
