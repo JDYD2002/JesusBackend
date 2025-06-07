@@ -13,7 +13,6 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       HF_API_KEY: ${{ secrets.HF_API_KEY }}
       AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
