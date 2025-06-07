@@ -5,7 +5,7 @@ from openai import OpenAI
 from ai21 import AI21Client
 from ai21.models.chat import ChatMessage, ResponseFormat
 import requests
-import httpx
+from transformers import pipeline
 from gtts import gTTS
 import tempfile
 import base64
@@ -15,7 +15,8 @@ import os
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+# DEEPSEEK_API_KEY não mais necessária para uso local
+# DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 client_ai21 = AI21Client(api_key=AI21_API_KEY)
@@ -38,36 +39,22 @@ conversa = [
 class Mensagem(BaseModel):
     texto: str
 
-# === DEEPSEEK ===
+# Inicializa o pipeline DeepSeek localmente
+pipe_deepseek = pipeline("text-generation", model="deepseek-ai/DeepSeek-R1-0528", trust_remote_code=True)
+
+# === DEEPSEEK usando transformers pipeline local ===
 async def chat_deepseek(mensagem_texto):
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    prompt = f"User: {mensagem_texto}\nAssistant:"
 
-    payload = {
-        "model": "deepseek-chat",  # ou deepseek-coder se preferir
-        "messages": conversa + [{"role": "user", "content": mensagem_texto}],
-        "temperature": 0.8
-    }
+    resultados = pipe_deepseek(prompt, max_length=200, do_sample=True, temperature=0.8)
 
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            response.raise_for_status()
-            data = response.json()
-            resposta_texto = data["choices"][0]["message"]["content"]
-            conversa.append({"role": "user", "content": mensagem_texto})
-            conversa.append({"role": "assistant", "content": resposta_texto})
-            return resposta_texto
-    except Exception as e:
-        print(f"Erro DeepSeek: {e}")
-        raise
+    resposta_texto = resultados[0]["generated_text"]
+    resposta_texto = resposta_texto[len(prompt):].strip()
+
+    conversa.append({"role": "user", "content": mensagem_texto})
+    conversa.append({"role": "assistant", "content": resposta_texto})
+
+    return resposta_texto
 
 # === OPENAI ===
 def chat_openai(mensagem_texto):
