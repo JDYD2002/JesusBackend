@@ -12,8 +12,8 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       HF_API_KEY: ${{ secrets.HF_API_KEY }}
-      AI21_API_KEY: ${{ secrets. AI21_API_KEY }}
-      DEEPSEEK_API_KEY: ${{ secrets. DEEPSEEK_API_KEY }}
+      AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
     steps:
       - name: Checkout repo
@@ -32,3 +32,6 @@ jobs:
       - name: Run your deployment script
         run: |
           echo "Chaves configuradas!"
+          # Aqui você deve colocar o comando para rodar o deploy, por exemplo:
+          # uvicorn main:app --host 0.0.0.0 --port 8000
+          # ou o script que você usar para deploy
