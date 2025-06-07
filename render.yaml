@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-test:
     runs-on: ubuntu-latest
 
     env:
@@ -29,6 +29,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-   - name: Run your deployment script
-  run: |
-    uvicorn main:app --host 0.0.0.0 --port 8000
+      - name: Run tests (exemplo)
+        run: |
+          # Rode seus testes aqui, se tiver
+          echo "Rodando testes..."
+          # pytest tests/
+
+# Se seu deploy é manual ou automático em outro serviço,
+# configure o deploy nesse serviço com startCommand correto:
+# uvicorn main:app --host 0.0.0.0 --port $PORT
