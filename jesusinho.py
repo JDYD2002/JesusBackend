@@ -13,7 +13,7 @@ import os
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+
 
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 client_ai21 = AI21Client(api_key=AI21_API_KEY)
@@ -38,25 +38,6 @@ class Mensagem(BaseModel):
     texto: str
 
 # === DeepSeek API oficial ===
-def chat_deepseek(mensagem_texto):
-    url = "https://api.deepseek.com/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": "deepseek-chat",
-        "messages": conversa + [{"role": "user", "content": mensagem_texto}],
-        "temperature": 0.8,
-        "max_tokens": 200
-    }
-
-    response = requests.post(url, headers=headers, json=data, timeout=30)
-    response.raise_for_status()
-    resposta = response.json()["choices"][0]["message"]["content"].strip()
-    conversa.append({"role": "user", "content": mensagem_texto})
-    conversa.append({"role": "assistant", "content": resposta})
-    return resposta
 
 # === OpenAI ===
 def chat_openai(mensagem_texto):
