@@ -9,14 +9,13 @@ from openai.exceptions import RateLimitError
 from gtts import gTTS
 import tempfile
 import base64
+import time
 
 # === Variáveis de ambiente ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AI21_API_KEY = os.getenv("AI21_API_KEY")
-FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 HF_API_KEY = os.getenv("HF_API_KEY")
-HF_MODEL = os.getenv("HF_MODEL", "google/gemma-2b-it")  # modelo atualizado
+HF_MODEL = os.getenv("HF_MODEL", "google/gemma-3n-E4B-it-litert-preview")  # Modelo correto
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 # Configurar cliente OpenAI
@@ -36,62 +35,40 @@ class Mensagem(BaseModel):
 
 # === Funções de chat ===
 
-def chat_openai(texto):
+def chat_openai(texto, retries=3):
+    for i in range(retries):
+        try:
+            resp = client_openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": texto}]
+            )
+            return resp.choices[0].message.content.strip()
+        except RateLimitError as e:
+            print(f"Rate limit no OpenAI gpt-4o-mini, tentativa {i+1}/{retries}: {e}")
+            time.sleep(5)  # espera 5s antes de tentar novamente
+    # Fallback para gpt-3.5-turbo
     try:
-        resp = client_openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": texto}]
-        )
-    except RateLimitError:
         resp = client_openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": texto}]
         )
-    return resp.choices[0].message.content.strip()
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Erro fallback OpenAI gpt-3.5-turbo: {e}")
+        return ""
 
-
-def chat_fireworks(texto):
-    url = "https://api.fireworksai.com/v1/generate"
-    headers = {"Authorization": f"Bearer {FIREWORKS_API_KEY}", "Content-Type": "application/json"}
-    payload = {"prompt": texto, "max_tokens": 200, "temperature": 0.8}
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    return r.json().get("text", "").strip()
-
-
-def chat_groq(texto):
-    url = "https://api.groq.ai/v1/infer"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    payload = {"input": texto, "model": "default"}
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    return r.json().get("output", "").strip()
-
+# Removidas funções chat_fireworks e chat_groq devido a erros DNS
 
 def chat_hf(texto):
     url = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
-    headers = {
-        "Authorization": f"Bearer {HF_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "inputs": texto,
-        "parameters": {
-            "temperature": 0.7,
-            "max_new_tokens": 200,
-            "do_sample": True
-        }
-    }
-    r = requests.post(url, json=payload, headers=headers, timeout=60)
+    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
+    payload = {"inputs": texto}
+    r = requests.post(url, json=payload, headers=headers, timeout=30)
     r.raise_for_status()
     data = r.json()
-
-    if isinstance(data, list) and "generated_text" in data[0]:
-        return data[0]["generated_text"].strip()
-    elif isinstance(data, dict) and "generated_text" in data:
-        return data["generated_text"].strip()
-    else:
-        return "Erro ao interpretar resposta da Hugging Face."
+    if isinstance(data, list) and data:
+        return data[0].get("generated_text", "").strip()
+    return data.get("generated_text", "").strip()
 
 def chat_ai21(texto):
     url = "https://api.ai21.com/studio/v1/j1-large/complete"
@@ -108,21 +85,28 @@ def chat_ai21(texto):
     completions = r.json().get("completions", [])
     return completions[0]["data"]["text"].strip() if completions else ""
 
-
 def chat_together(texto):
-    url = "https://api.together.xyz/inference"
+    url = "https://api.together.xyz/v1/chat/completions"  # Corrigido para v1/chat/completions
     headers = {"Authorization": f"Bearer {TOGETHER_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "together-gpt", "prompt": texto}
+    payload = {
+        "model": "together-gpt",
+        "messages": [{"role": "user", "content": texto}],
+        "max_tokens": 200,
+        "temperature": 0.7,
+    }
     r = requests.post(url, json=payload, headers=headers, timeout=30)
     r.raise_for_status()
-    return r.json().get("response", "").strip()
-
-# === Endpoints ===
+    data = r.json()
+    # Ajuste para parsear a resposta da Together API corretamente
+    choices = data.get("choices")
+    if choices and len(choices) > 0:
+        return choices[0].get("message", {}).get("content", "").strip()
+    return ""
 
 @app.post("/chat")
 async def chat_endpoint(mensagem: Mensagem):
     texto_usuario = mensagem.texto
-    for func in (chat_openai, chat_fireworks, chat_groq, chat_hf, chat_ai21, chat_together):
+    for func in (chat_openai, chat_hf, chat_ai21, chat_together):
         try:
             resposta = func(texto_usuario)
             if resposta:
