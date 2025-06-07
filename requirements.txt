@@ -1,6 +1,10 @@
 fastapi
-uvicorn
+uvicorn[standard]
+pydantic
 openai
+ai21
+transformers
+accelerate
 requests
+httpx
 gtts
-python-multipart
