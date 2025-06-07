@@ -34,6 +34,7 @@ class Mensagem(BaseModel):
 
 # === Funções de chat ===
 
+
 def chat_openai(texto):
     response = client_openai.chat.completions.create(
         model="gpt-4o-mini",
@@ -103,6 +104,20 @@ def chat_together(texto):
     response = requests.post(url, json=payload, headers=headers, timeout=30)
     response.raise_for_status()
     return response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    def chat_deepseek(mensagem_texto):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "deepseek/deepseek-r1:free",
+        "messages": [{"role": "user", "content": mensagem_texto}]
+    }
+    response = requests.post(url, json=payload, headers=headers, timeout=30)
+    response.raise_for_status()
+    return response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+
 
 # === Endpoint chat com fallback ===
 @app.post("/chat")
