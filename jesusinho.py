@@ -4,7 +4,6 @@ from pydantic import BaseModel
 import os
 import base64
 import tempfile
-import time
 import asyncio
 import httpx
 import shelve
@@ -64,7 +63,7 @@ async def chat_openai(texto, retries=2):
     prompt = f"Responda em português, por favor:\n{texto}"
     for i in range(retries):
         try:
-            resp = await client_openai.chat.completions.acreate(
+            resp = await client_openai.chat.acreate(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -74,7 +73,7 @@ async def chat_openai(texto, retries=2):
             print(f"Erro OpenAI gpt-4o-mini tentativa {i+1}: {e}")
             await asyncio.sleep(2)
     try:
-        resp = await client_openai.chat.completions.acreate(
+        resp = await client_openai.chat.acreate(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
@@ -89,7 +88,7 @@ async def chat_hf(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
     payload = {"inputs": prompt}
-    timeout = 5.0
+    timeout = 10.0
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         for model in HF_MODELS:
@@ -110,7 +109,7 @@ async def chat_hf(texto):
 async def chat_ai21(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}", "Content-Type": "application/json"}
-    timeout = 5.0
+    timeout = 10.0
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         for model in AI21_MODELS:
@@ -138,7 +137,7 @@ async def chat_ai21(texto):
 async def chat_together(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {TOGETHER_API_KEY}"}
-    timeout = 5.0
+    timeout = 10.0
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         for model in TOGETHER_MODELS:
@@ -182,8 +181,6 @@ async def tts(mensagem: Mensagem):
         return {"audio_b64": audio_b64}
     except Exception as e:
         return {"audio_b64": None, "erro": str(e)}
-
-# === Funções auxiliares para cache diário ===
 
 def get_hoje():
     return datetime.now().strftime("%Y-%m-%d")
