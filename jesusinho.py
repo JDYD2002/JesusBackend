@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 from ai21 import AI21Client
+from together import Together
 import requests
 from gtts import gTTS
 import tempfile
@@ -101,10 +102,13 @@ def chat_hf(mensagem_texto):
 def chat_together(mensagem_texto):
     resp = together_client.chat.completions.create(
         model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-        messages=[{"role": "user", "content": mensagem_texto}],
+        messages=conversa + [{"role": "user", "content": mensagem_texto}],
         stream=False,
     )
-    return resp.choices[0].message.content.strip()
+    resposta = resp.choices[0].message.content.strip()
+    conversa.append({"role": "user", "content": mensagem_texto})
+    conversa.append({"role": "assistant", "content": resposta})
+    return resposta
 
 # === ROTA PRINCIPAL ===
 @app.post("/chat")
@@ -112,25 +116,30 @@ async def chat(mensagem: Mensagem):
     texto_usuario = mensagem.texto
     try:
         resposta = chat_deepseek(texto_usuario)
-        return {"resposta": resposta}
+        return {"resposta": resposta, "modelo": "DeepSeek"}
     except Exception as e1:
         print(f"Erro DeepSeek: {e1}")
         try:
             resposta = chat_openai(texto_usuario)
-            return {"resposta": resposta}
+            return {"resposta": resposta, "modelo": "OpenAI"}
         except Exception as e2:
             print(f"Erro OpenAI: {e2}")
             try:
                 resposta = chat_hf(texto_usuario)
-                return {"resposta": resposta}
+                return {"resposta": resposta, "modelo": "HuggingFace"}
             except Exception as e3:
                 print(f"Erro Hugging Face: {e3}")
                 try:
-                    resposta = chat_ai21(texto_usuario)
-                    return {"resposta": resposta}
+                    resposta = chat_together(texto_usuario)
+                    return {"resposta": resposta, "modelo": "Together AI"}
                 except Exception as e4:
-                    print(f"Erro AI21: {e4}")
-                    return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
+                    print(f"Erro Together: {e4}")
+                    try:
+                        resposta = chat_ai21(texto_usuario)
+                        return {"resposta": resposta, "modelo": "AI21"}
+                    except Exception as e5:
+                        print(f"Erro AI21: {e5}")
+                        return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
 
 # === TTS (áudio base64) ===
 @app.post("/tts")
@@ -168,4 +177,4 @@ async def oracao():
 # === Status ===
 @app.get("/")
 async def raiz():
-    return {"mensagem": "API Jesusinho está rodando com DeepSeek (API oficial)! 🙌"}
+    return {"mensagem": "API Jesusinho está rodando com fallback inteligente! 🙌"}
