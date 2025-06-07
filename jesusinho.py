@@ -37,10 +37,9 @@ conversa = [
 class Mensagem(BaseModel):
     texto: str
 
-# Inicializa o pipeline DeepSeek localmente
-pipe_deepseek = pipeline("text-generation", model="deepseek-ai/DeepSeek-R1-0528", trust_remote_code=True)
+# === PIPELINE LOCAL USANDO DISTILGPT2 (RODA EM CPU) ===
+pipe_deepseek = pipeline("text-generation", model="distilgpt2")
 
-# === DEEPSEEK usando transformers pipeline local ===
 async def chat_deepseek(mensagem_texto):
     prompt = f"User: {mensagem_texto}\nAssistant:"
     resultados = pipe_deepseek(prompt, max_length=200, do_sample=True, temperature=0.8)
@@ -63,7 +62,6 @@ def chat_openai(mensagem_texto):
     conversa.append({"role": "assistant", "content": texto_resposta})
     return texto_resposta
 
-# === HUGGING FACE ===
 # === AI21 ===
 def chat_ai21(mensagem_texto):
     resposta = client_ai21.complete(
@@ -109,7 +107,7 @@ async def chat(mensagem: Mensagem):
             except Exception as e3:
                 print(f"Erro Hugging Face: {e3}")
                 try:
-                    resposta = await chat_ai21(texto_usuario)
+                    resposta = chat_ai21(texto_usuario)
                     return {"resposta": resposta}
                 except Exception as e4:
                     print(f"Erro AI21: {e4}")
@@ -151,4 +149,4 @@ async def oracao():
 # === Status ===
 @app.get("/")
 async def raiz():
-    return {"mensagem": "API Jesusinho está rodando com DeepSeek! 🙌"}
+    return {"mensagem": "API Jesusinho está rodando com DeepSeek (distilgpt2) em CPU! 🙌"}
