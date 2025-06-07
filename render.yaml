@@ -15,9 +15,8 @@ jobs:
       AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-            API_KEY_GROQ: ${{ secrets.TOGETHER_API_KEY }}
-                  API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-  
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
 
     steps:
       - name: Checkout repo
@@ -35,9 +34,9 @@ jobs:
 
       - name: Run tests (exemplo)
         run: |
-          # Rode seus testes aqui, se tiver
           echo "Rodando testes..."
           # pytest tests/
+
 
 # Se seu deploy é manual ou automático em outro serviço,
 # configure o deploy nesse serviço com startCommand correto:
