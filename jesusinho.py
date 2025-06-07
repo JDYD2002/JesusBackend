@@ -3,10 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import requests
-import openai
 from openai import OpenAI
-# import openai.exceptions  # removido
-
 from gtts import gTTS
 import tempfile
 import base64
@@ -16,10 +13,8 @@ import time
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AI21_API_KEY = os.getenv("AI21_API_KEY")
 HF_API_KEY = os.getenv("HF_API_KEY")
-HF_MODEL = os.getenv("HF_MODEL", "google/gemma-3n-E4B-it-litert-preview")
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-openai.api_key = OPENAI_API_KEY
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 
 app = FastAPI()
@@ -33,6 +28,25 @@ app.add_middleware(
 class Mensagem(BaseModel):
     texto: str
 
+# Modelos para fallback em cada API
+HF_MODELS = [
+    "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    "meta-llama/Meta-Llama-3-8B-Instruct",
+    "HuggingFaceH4/zephyr-7b-beta",
+]
+
+AI21_MODELS = [
+    "j1-large",
+    "j1-jumbo",
+    "j1-grande",
+]
+
+TOGETHER_MODELS = [
+    "together-gpt",
+    "together-gpt-medium",
+    "together-gpt-large",
+]
+
 def chat_openai(texto, retries=3):
     for i in range(retries):
         try:
@@ -44,7 +58,6 @@ def chat_openai(texto, retries=3):
         except Exception as e:
             print(f"Erro no OpenAI gpt-4o-mini, tentativa {i+1}/{retries}: {e}")
             time.sleep(5)
-    # Fallback para gpt-3.5-turbo
     try:
         resp = client_openai.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -55,51 +68,65 @@ def chat_openai(texto, retries=3):
         print(f"Erro fallback OpenAI gpt-3.5-turbo: {e}")
         return ""
 
-
-# Removidas funções chat_fireworks e chat_groq devido a erros DNS
-
 def chat_hf(texto):
-    url = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
     payload = {"inputs": texto}
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    if isinstance(data, list) and data:
-        return data[0].get("generated_text", "").strip()
-    return data.get("generated_text", "").strip()
+    for model in HF_MODELS:
+        try:
+            url = f"https://api-inference.huggingface.co/models/{model}"
+            r = requests.post(url, json=payload, headers=headers, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            if isinstance(data, list) and data:
+                return data[0].get("generated_text", "").strip()
+            return data.get("generated_text", "").strip()
+        except Exception as e:
+            print(f"Erro chat_hf modelo {model}: {e}")
+            continue
+    return ""
 
 def chat_ai21(texto):
-    url = "https://api.ai21.com/studio/v1/j1-large/complete"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}", "Content-Type": "application/json"}
-    payload = {
-        "prompt": texto,
-        "numResults": 1,
-        "maxTokens": 200,
-        "temperature": 0.7,
-        "topP": 0.9
-    }
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    completions = r.json().get("completions", [])
-    return completions[0]["data"]["text"].strip() if completions else ""
+    for model in AI21_MODELS:
+        try:
+            url = f"https://api.ai21.com/studio/v1/{model}/complete"
+            payload = {
+                "prompt": texto,
+                "numResults": 1,
+                "maxTokens": 200,
+                "temperature": 0.7,
+                "topP": 0.9
+            }
+            r = requests.post(url, json=payload, headers=headers, timeout=30)
+            r.raise_for_status()
+            completions = r.json().get("completions", [])
+            if completions:
+                return completions[0]["data"]["text"].strip()
+        except Exception as e:
+            print(f"Erro chat_ai21 modelo {model}: {e}")
+            continue
+    return ""
 
 def chat_together(texto):
-    url = "https://api.together.xyz/v1/chat/completions"  # Corrigido para v1/chat/completions
     headers = {"Authorization": f"Bearer {TOGETHER_API_KEY}", "Content-Type": "application/json"}
-    payload = {
-        "model": "together-gpt",
-        "messages": [{"role": "user", "content": texto}],
-        "max_tokens": 200,
-        "temperature": 0.7,
-    }
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    # Ajuste para parsear a resposta da Together API corretamente
-    choices = data.get("choices")
-    if choices and len(choices) > 0:
-        return choices[0].get("message", {}).get("content", "").strip()
+    for model in TOGETHER_MODELS:
+        try:
+            url = "https://api.together.xyz/v1/chat/completions"
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": texto}],
+                "max_tokens": 200,
+                "temperature": 0.7,
+            }
+            r = requests.post(url, json=payload, headers=headers, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            choices = data.get("choices")
+            if choices and len(choices) > 0:
+                return choices[0].get("message", {}).get("content", "").strip()
+        except Exception as e:
+            print(f"Erro chat_together modelo {model}: {e}")
+            continue
     return ""
 
 @app.post("/chat")
