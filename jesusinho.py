@@ -138,12 +138,18 @@ async def chat(mensagem: Mensagem):
     ]
     for func in funcoes:
         try:
-            resposta = func(texto_usuario)  # chama síncrono
+            resposta = await func(texto_usuario)  # use await se for async
             if resposta:
                 return {"resposta": resposta}
         except Exception as e:
             print(f"Erro {func.__name__}: {e}")
     return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
+
+def outra_funcao():
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    # resto do código aqui, indentado corretamente
+    return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. 🙏"}
+
 
 
 # === TTS (áudio base64) ===
