@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,7 +16,7 @@ AI21_API_KEY = os.getenv("AI21_API_KEY")
 FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 HF_API_KEY = os.getenv("HF_API_KEY")
-HF_MODEL = os.getenv("HF_MODEL", "deepseek-ai/DeepSeek-R1-0528")  # Default updated
+HF_MODEL = os.getenv("HF_MODEL", "google/gemma-2b-it")  # modelo atualizado
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 # Configurar cliente OpenAI
@@ -44,7 +43,6 @@ def chat_openai(texto):
             messages=[{"role": "user", "content": texto}]
         )
     except RateLimitError:
-        # Fallback para modelo com maior quota
         resp = client_openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": texto}]
@@ -72,15 +70,28 @@ def chat_groq(texto):
 
 def chat_hf(texto):
     url = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
-    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    payload = {"inputs": texto}
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
+    headers = {
+        "Authorization": f"Bearer {HF_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "inputs": texto,
+        "parameters": {
+            "temperature": 0.7,
+            "max_new_tokens": 200,
+            "do_sample": True
+        }
+    }
+    r = requests.post(url, json=payload, headers=headers, timeout=60)
     r.raise_for_status()
     data = r.json()
-    if isinstance(data, list) and data:
-        return data[0].get("generated_text", "").strip()
-    return data.get("generated_text", "").strip()
 
+    if isinstance(data, list) and "generated_text" in data[0]:
+        return data[0]["generated_text"].strip()
+    elif isinstance(data, dict) and "generated_text" in data:
+        return data["generated_text"].strip()
+    else:
+        return "Erro ao interpretar resposta da Hugging Face."
 
 def chat_ai21(texto):
     url = "https://api.ai21.com/studio/v1/j1-large/complete"
@@ -105,6 +116,8 @@ def chat_together(texto):
     r = requests.post(url, json=payload, headers=headers, timeout=30)
     r.raise_for_status()
     return r.json().get("response", "").strip()
+
+# === Endpoints ===
 
 @app.post("/chat")
 async def chat_endpoint(mensagem: Mensagem):
@@ -150,4 +163,3 @@ async def oracao():
 @app.get("/")
 async def raiz():
     return {"mensagem": "API Jesusinho está rodando com fallback inteligente! 🙌"}
-```
