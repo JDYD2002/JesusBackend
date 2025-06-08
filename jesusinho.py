@@ -47,7 +47,7 @@ def chat_openai(mensagem_texto):
     return texto_resposta
 
 def chat_hf(mensagem_texto):
-    url = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+    url = "https://api-inference.huggingface.co/models/gpt2"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {
         "inputs": mensagem_texto,
