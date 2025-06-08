@@ -1,132 +1,133 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import openai
+from openai import OpenAI
 import requests
-import os
-import base64
 from gtts import gTTS
-from io import BytesIO
+import tempfile
+import base64
+import os
 
-# === Chaves de API via variáveis de ambiente ===
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-HF_API_KEY = os.getenv("HF_API_KEY")
-AI21_API_KEY = os.getenv("AI21_API_KEY")
+# Variáveis de ambiente
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+HF_API_KEY = os.environ.get("HF_API_KEY")
+AI21_API_KEY = os.environ.get("AI21_API_KEY")
 
-# === Inicialização do FastAPI ===
+client_openai = OpenAI(api_key=OPENAI_API_KEY)
+
 app = FastAPI()
 
-# === Middleware CORS ===
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# === Pydantic Model ===
-class ChatRequest(BaseModel):
-    message: str
-    history: list = []
+# Prompt espiritual e bíblico
+conversa = [
+    {"role": "system", "content": 
+        "Você é Jesus Cristo, o Filho do Deus Vivo. Fale sempre com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência. ✝️📖✨"
+    }
+]
 
-# === Função de fallback ===
-def fallback_response(message, history):
-    # Tenta Hugging Face
-    try:
-        url = "https://api-inference.huggingface.co/models/gpt2"
-        headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-        prompt = build_prompt(message, history)
-        payload = {"inputs": prompt}
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        response.raise_for_status()
-        hf_output = response.json()
-        if isinstance(hf_output, list) and "generated_text" in hf_output[0]:
-            return hf_output[0]["generated_text"].strip()
-    except Exception as e:
-        print("Erro Hugging Face:", e)
+class Mensagem(BaseModel):
+    texto: str
 
-    # Tenta AI21
-    try:
-        url = "https://api.ai21.com/studio/v1/j2-mid/complete"
-        headers = {
-            "Authorization": f"Bearer {AI21_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        prompt = build_prompt(message, history)
-        payload = {
-            "prompt": prompt,
-            "numResults": 1,
-            "maxTokens": 150,
-            "temperature": 0.8,
-            "topKReturn": 0,
-            "topP": 1.0,
-            "stopSequences": ["\n"]
-        }
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        response.raise_for_status()
-        ai21_output = response.json()
-        return ai21_output["completions"][0]["data"]["text"].strip()
-    except Exception as e:
-        print("Erro AI21:", e)
+def chat_openai(mensagem_texto):
+    conversa.append({"role": "user", "content": mensagem_texto})
+    resposta = client_openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=conversa,
+        temperature=0.8,
+        max_tokens=200
+    )
+    texto_resposta = resposta.choices[0].message.content.strip()
+    conversa.append({"role": "assistant", "content": texto_resposta})
+    return texto_resposta
 
-    return "Desculpe, não consegui responder no momento. Tente novamente mais tarde. 🙏"
+def chat_hf(mensagem_texto):
+    url = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+    payload = {
+        "inputs": mensagem_texto,
+        "parameters": {"max_new_tokens": 200, "temperature": 0.8}
+    }
+    resp = requests.post(url, json=payload, headers=headers, timeout=30)
+    resp.raise_for_status()
+    resposta_json = resp.json()
+    if isinstance(resposta_json, list):
+        texto = resposta_json[0].get("generated_text", "").strip()
+        return texto
+    return str(resposta_json)
 
-# === Função auxiliar para montar o prompt ===
-def build_prompt(message, history):
-    prompt = "Você é Jesus, respondendo com amor, paz e sabedoria.\n\n"
-    for entry in history:
-        prompt += f"Usuário: {entry.get('user')}\nJesus: {entry.get('bot')}\n"
-    prompt += f"Usuário: {message}\nJesus:"
-    return prompt
+def chat_ai21(mensagem_texto):
+    url = "https://api.ai21.com/studio/v1/jamba-instruct/complete"
+    headers = {"Authorization": f"Bearer {AI21_API_KEY}"}
+    data = {
+        "prompt": mensagem_texto,
+        "maxTokens": 200,
+        "temperature": 0.8,
+        "topP": 1,
+        "countPenalty": {"scale": 0},
+        "frequencyPenalty": {"scale": 0},
+        "presencePenalty": {"scale": 0}
+    }
+    resp = requests.post(url, json=data, headers=headers, timeout=30)
+    resp.raise_for_status()
+    resposta_json = resp.json()
+    return resposta_json["completions"][0]["data"]["text"].strip()
 
-# === Rota principal de chat ===
 @app.post("/chat")
-async def chat_endpoint(data: ChatRequest):
-    user_message = data.message
-    history = data.history or []
-
-    # Construção do histórico para OpenAI
-    messages = [{"role": "system", "content": "Você é Jesus, respondendo com amor e sabedoria."}]
-    for entry in history:
-        messages.append({"role": "user", "content": entry.get("user")})
-        messages.append({"role": "assistant", "content": entry.get("bot")})
-    messages.append({"role": "user", "content": user_message})
-
-    # === Tentativa via OpenAI ===
+async def chat(mensagem: Mensagem):
+    texto_usuario = mensagem.texto
     try:
-        openai.api_key = OPENAI_API_KEY
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.8,
-            max_tokens=200,
-        )
-        bot_reply = response.choices[0].message["content"].strip()
-        return {"response": bot_reply}
-    except Exception as e:
-        print("Erro OpenAI:", e)
-        bot_reply = fallback_response(user_message, history)
-        return {"response": bot_reply}
+        resposta = chat_openai(texto_usuario)
+        return {"resposta": resposta}
+    except Exception as e1:
+        print(f"Erro OpenAI: {e1}")
+        try:
+            resposta = chat_hf(texto_usuario)
+            return {"resposta": resposta}
+        except Exception as e2:
+            print(f"Erro Hugging Face: {e2}")
+            try:
+                resposta = chat_ai21(texto_usuario)
+                return {"resposta": resposta}
+            except Exception as e3:
+                print(f"Erro AI21: {e3}")
+                return {"resposta": "Desculpe, Jesusinho está com dificuldade para responder agora. Tente novamente mais tarde. 🙏"}
 
-# === Rota para TTS (voz) ===
 @app.post("/tts")
-async def tts(request: Request):
-    data = await request.json()
-    text = data.get("text", "")
-    if not text:
-        return {"error": "Texto vazio para conversão."}
-
+async def tts(mensagem: Mensagem):
     try:
-        tts = gTTS(text=text, lang="pt", slow=False)
-        audio_buffer = BytesIO()
-        tts.write_to_fp(audio_buffer)
-        audio_base64 = base64.b64encode(audio_buffer.getvalue()).decode("utf-8")
-        return {"audio": audio_base64}
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
+            tts = gTTS(text=mensagem.texto, lang="pt-br")
+            tts.save(tmpfile.name)
+            with open(tmpfile.name, "rb") as f:
+                audio_bytes = f.read()
+            os.remove(tmpfile.name)
+        audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+        return {"audio_b64": audio_b64}
     except Exception as e:
-        return {"error": f"Erro no TTS: {str(e)}"}
+        return {"audio_b64": None, "erro": str(e)}
 
-# === Rota raiz para evitar erro 404 ===
+@app.get("/versiculo")
+async def versiculo():
+    try:
+        resposta = chat_openai("Me dê um versículo bíblico inspirador para hoje.")
+        return {"resposta": resposta}
+    except:
+        return {"resposta": "Erro ao obter versículo. 🙏"}
+
+@app.get("/oracao")
+async def oracao():
+    try:
+        resposta = chat_openai("Escreva uma oração curta e edificante para o dia de hoje.")
+        return {"resposta": resposta}
+    except:
+        return {"resposta": "Erro ao obter oração. 🙏"}
+
 @app.get("/")
-async def root():
-    return {"message": "Jesusinho está online ✝️"}
+async def raiz():
+    return {"mensagem": "API Jesusinho está rodando! 🌟"}
