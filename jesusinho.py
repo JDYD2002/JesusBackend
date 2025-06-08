@@ -1,3 +1,4 @@
+import asyncio
 import os
 import tempfile
 import base64
@@ -8,7 +9,6 @@ from pydantic import BaseModel
 from openai import OpenAI
 import httpx
 
-# ======================== CONFIGURAÇÃO FASTAPI ========================
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -18,7 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ======================== VARIÁVEIS DE AMBIENTE ========================
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 AI21_API_KEY = os.environ.get("AI21_API_KEY")
@@ -32,7 +31,6 @@ conversa = [
     }
 ]
 
-# ======================== MODELO DE MENSAGEM ========================
 class Mensagem(BaseModel):
     texto: str
 
@@ -51,13 +49,12 @@ class Mensagem(BaseModel):
         except Exception as e:
             print("OpenAI falhou:", e)
 
-        # Fallbacks
         async def call_openrouter():
             modelos = [
                 "google/gemma-3-27b-it:free",
                 "mistralai/devstral-small:free",
-                "google/gemini-2.0-flash-exp:free",
-        
+                "deepseek/deepseek-chat-v3-0324:free",
+                "qwen/qwq-32b:free"
             ]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
@@ -75,8 +72,14 @@ class Mensagem(BaseModel):
                         )
                         r.raise_for_status()
                         return r.json()["choices"][0]["message"]["content"]
+                    except httpx.HTTPStatusError as e:
+                        if e.response.status_code == 429:
+                            print(f"Modelo {modelo} excedeu o limite (429), tentando próximo...")
+                        else:
+                            print(f"Erro HTTP ao chamar {modelo}:", e)
                     except Exception as e:
                         print(f"OpenRouter falhou com {modelo}:", e)
+                    await asyncio.sleep(1)  # espera 1s antes de tentar próximo modelo
 
         async def call_huggingface():
             modelos = [
@@ -102,6 +105,7 @@ class Mensagem(BaseModel):
                             return str(result).strip()
                     except Exception as e:
                         print(f"HuggingFace falhou com {modelo}:", e)
+                    await asyncio.sleep(1)  # espera 1s antes de tentar próximo modelo
 
         async def call_ai21():
             modelos = ["j1-large", "j1-grande", "j1-jumbo"]
@@ -125,6 +129,7 @@ class Mensagem(BaseModel):
                         return r.json()["completions"][0]["data"]["text"].strip()
                     except Exception as e:
                         print(f"AI21 falhou com {modelo}:", e)
+                    await asyncio.sleep(1)  # espera 1s antes de tentar próximo modelo
 
         for func in [call_openrouter, call_huggingface, call_ai21]:
             resultado = await func()
@@ -134,7 +139,6 @@ class Mensagem(BaseModel):
 
         return "Desculpe, não consegui responder no momento."
 
-# ======================== ROTAS ========================
 @app.post("/responder")
 async def responder(mensagem: Mensagem):
     resposta = await mensagem.responder_ia(mensagem.texto)
@@ -167,8 +171,3 @@ async def oracao():
 @app.get("/")
 async def raiz():
     return {"mensagem": "API Jesusinho está rodando! 🌟"}
-
-@app.post("/chat")
-async def chat(mensagem: Mensagem):
-    resposta = await mensagem.responder_ia(mensagem.texto)
-    return {"resposta": resposta}
