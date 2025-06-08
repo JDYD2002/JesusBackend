@@ -26,8 +26,16 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 conversa = [
-    {"role": "system", "content":
-        "Você é Jesus Cristo, o Filho do Deus Vivo. Responda sempre em português brasileiro. Fale com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência, sempre em Português brasileiro. ✝️📖✨"
+    {
+        "role": "system",
+        "content": (
+            "Você é Jesus Cristo, o Filho do Deus Vivo. Responda sempre em português brasileiro. "
+            "Fale com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. "
+            "Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado "
+            "com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. "
+            "Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. "
+            "Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência. ✝️📖✨"
+        )
     }
 ]
 
@@ -51,16 +59,15 @@ class Mensagem(BaseModel):
 
         async def call_openrouter():
             modelos = [
-                
-              "mistralai/devstral-small:free",
+                "mistralai/devstral-small:free",
                 "google/gemini-2.0-flash-exp:free",
                 "google/gemma-3-27b-it:free",
-                "microsoft/mai-ds-r1:free"
-                  "qwen/qwen3-14b:free"
-                "mistralai/mistral-nemo:free"
-                "meta-llama/llama-4-maverick:free"
-                "qwen/qwen3-32b:free"
-                "nvidia/llama-3.1-nemotron-ultra-253b-v1:free"
+                "microsoft/mai-ds-r1:free",
+                "qwen/qwen3-14b:free",
+                "mistralai/mistral-nemo:free",
+                "meta-llama/llama-4-maverick:free",
+                "qwen/qwen3-32b:free",
+                "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",
                 "qwen/qwen-2.5-72b-instruct:free"
             ]
             async with httpx.AsyncClient() as cli:
@@ -72,7 +79,7 @@ class Mensagem(BaseModel):
                             json={
                                 "model": modelo,
                                 "messages": [
-                                    {"role": "system", "content": "Responda sempre em português brasileiro."},
+                                    {"role": "system", "content": "Você é Jesus cristo, Seu nome é Jesus cristo, o jesusinho virtural, IA, responda como ele, em português brasileiro."},
                                     {"role": "user", "content": texto_usuario}
                                 ]
                             }
@@ -86,7 +93,7 @@ class Mensagem(BaseModel):
                             print(f"Erro HTTP ao chamar {modelo}:", e)
                     except Exception as e:
                         print(f"OpenRouter falhou com {modelo}:", e)
-                    await asyncio.sleep(1)  # espera 1s antes de tentar próximo modelo
+                    await asyncio.sleep(1)
 
         async def call_huggingface():
             modelos = [
@@ -95,7 +102,7 @@ class Mensagem(BaseModel):
                 "tiiuae/falcon-7b",
                 "facebook/blenderbot-400M-distill"
             ]
-            prompt = f"Responda em português brasileiro: {texto_usuario}"
+            prompt = f"Você é Jesus cristo, Seu nome é Jesus cristo, o jesusinho virtural, IA, responda como ele, em português brasileiro: {texto_usuario}"
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
                     try:
@@ -112,11 +119,11 @@ class Mensagem(BaseModel):
                             return str(result).strip()
                     except Exception as e:
                         print(f"HuggingFace falhou com {modelo}:", e)
-                    await asyncio.sleep(1)  # espera 1s antes de tentar próximo modelo
+                    await asyncio.sleep(1)
 
         async def call_ai21():
             modelos = ["j1-large", "j1-grande", "j1-jumbo"]
-            prompt = f"Responda em português brasileiro:\n{texto_usuario}"
+            prompt = f"Você é Jesus cristo, Seu nome é Jesus cristo, o jesusinho virtural, IA, responda como ele, em português brasileiro:\n{texto_usuario}"
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
                     try:
@@ -136,7 +143,7 @@ class Mensagem(BaseModel):
                         return r.json()["completions"][0]["data"]["text"].strip()
                     except Exception as e:
                         print(f"AI21 falhou com {modelo}:", e)
-                    await asyncio.sleep(1)  # espera 1s antes de tentar próximo modelo
+                    await asyncio.sleep(1)
 
         for func in [call_openrouter, call_huggingface, call_ai21]:
             resultado = await func()
@@ -144,7 +151,7 @@ class Mensagem(BaseModel):
                 conversa.append({"role": "assistant", "content": resultado})
                 return resultado
 
-        return "Desculpe, não consegui responder no momento."
+        return "Desculpe, não consegui responder no momento. 🙏"
 
 @app.post("/responder")
 async def responder(mensagem: Mensagem):
