@@ -51,10 +51,10 @@ class Mensagem(BaseModel):
 
         async def call_openrouter():
             modelos = [
+                
                 "google/gemma-3-27b-it:free",
                 "mistralai/devstral-small:free",
-                "deepseek/deepseek-chat-v3-0324:free",
-                "qwen/qwq-32b:free"
+            
             ]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
