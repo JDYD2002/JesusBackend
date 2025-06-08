@@ -8,15 +8,15 @@ import asyncio
 import httpx
 import shelve
 from datetime import datetime
-from openai import OpenAI
+import openai
 from gtts import gTTS
 
 # === Variáveis de ambiente ===
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or ""
 AI21_API_KEY = os.getenv("AI21_API_KEY")
 HF_API_KEY = os.getenv("HF_API_KEY")
 
-client_openai = OpenAI(api_key=OPENAI_API_KEY)
+client_openai = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 app = FastAPI()
 app.add_middleware(
@@ -29,15 +29,15 @@ app.add_middleware(
 class Mensagem(BaseModel):
     texto: str
 
+# === Modelos gratuitos testados ===
 HF_MODELS = [
-    "mistralai/Mixtral-8x7B-Instruct-v0.1",
-    "meta-llama/Meta-Llama-3-8B-Instruct",
-    "HuggingFaceH4/zephyr-7b-beta",
+    "nvidia/Nemotron-Research-Reasoning-Qwen-1.5B",
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "Qwen/Qwen3-0.6B"
 ]
 
 AI21_MODELS = [
-    "j2-light",
-    "j2-mid",
+    "j2-ultra",  # modelo gratuito e disponível
 ]
 
 def limpa_resposta(texto, prompt):
@@ -45,27 +45,26 @@ def limpa_resposta(texto, prompt):
     prompt_lower = prompt.lower().strip()
     if texto_lower.startswith(prompt_lower):
         return texto[len(prompt):].strip()
-    prompt_simples = prompt_lower.replace("responda em português, por favor.\n", "").strip()
-    if texto_lower.startswith(prompt_simples):
-        return texto[len(prompt_simples):].strip()
     return texto.strip()
 
-# --- OpenAI async ---
+# --- OpenAI ---
 async def chat_openai(texto, retries=2):
+    if not OPENAI_API_KEY:
+        return ""
     prompt = f"Responda em português, por favor:\n{texto}"
     for i in range(retries):
         try:
-            resp = await client_openai.chat.acreate(
-                model="gpt-4o-mini",
+            resp = await client_openai.chat.completions.create(
+                model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}]
             )
             resposta = resp.choices[0].message.content.strip()
             return limpa_resposta(resposta, prompt)
         except Exception as e:
-            print(f"Erro OpenAI gpt-4o-mini tentativa {i+1}: {e}")
-            await asyncio.sleep(2)
+            print(f"Erro OpenAI gpt-4o tentativa {i+1}: {e}")
+            await asyncio.sleep(1)
     try:
-        resp = await client_openai.chat.acreate(
+        resp = await client_openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
@@ -75,13 +74,12 @@ async def chat_openai(texto, retries=2):
         print(f"Erro fallback OpenAI gpt-3.5-turbo: {e}")
         return ""
 
-# --- Hugging Face async ---
+# --- Hugging Face ---
 async def chat_hf(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
     payload = {"inputs": prompt}
-    timeout = 10.0
-
+    timeout = 20.0
     async with httpx.AsyncClient(timeout=timeout) as client:
         for model in HF_MODELS:
             url = f"https://api-inference.huggingface.co/models/{model}"
@@ -92,17 +90,16 @@ async def chat_hf(texto):
                 if isinstance(data, list) and data:
                     return data[0].get("generated_text", "").strip()
                 return data.get("generated_text", "").strip()
-            except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            except Exception as e:
                 print(f"Erro chat_hf modelo {model}: {e}")
                 continue
     return ""
 
-# --- AI21 async ---
+# --- AI21 ---
 async def chat_ai21(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}", "Content-Type": "application/json"}
-    timeout = 10.0
-
+    timeout = 15.0
     async with httpx.AsyncClient(timeout=timeout) as client:
         for model in AI21_MODELS:
             url = f"https://api.ai21.com/studio/v1/{model}/complete"
@@ -120,7 +117,7 @@ async def chat_ai21(texto):
                 completions = data.get("completions", [])
                 if completions:
                     return completions[0].get("data", {}).get("text", "").strip()
-            except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            except Exception as e:
                 print(f"Erro chat_ai21 modelo {model}: {e}")
                 continue
     return ""
