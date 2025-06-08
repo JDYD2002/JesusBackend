@@ -13,8 +13,8 @@ from gtts import gTTS
 
 # === Variáveis de ambiente ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or ""
-AI21_API_KEY = os.getenv("AI21_API_KEY")
-HF_API_KEY = os.getenv("HF_API_KEY")
+AI21_API_KEY = os.getenv("AI21_API_KEY") or ""
+HF_API_KEY = os.getenv("HF_API_KEY") or ""
 
 client_openai = openai.OpenAI(api_key=OPENAI_API_KEY)
 
@@ -29,15 +29,14 @@ app.add_middleware(
 class Mensagem(BaseModel):
     texto: str
 
-# === Modelos gratuitos testados ===
+# === Modelos gratuitos confirmados ===
 HF_MODELS = [
-    "nvidia/Nemotron-Research-Reasoning-Qwen-1.5B",
-    "meta-llama/Llama-3.1-8B-Instruct",
-    "Qwen/Qwen3-0.6B"
+    "openai-community/gpt2"
 ]
 
 AI21_MODELS = [
-    "j2-ultra",  # modelo gratuito e disponível
+    "j1-large",
+    "j1-jumbo",
 ]
 
 def limpa_resposta(texto, prompt):
@@ -54,7 +53,7 @@ async def chat_openai(texto, retries=2):
     prompt = f"Responda em português, por favor:\n{texto}"
     for i in range(retries):
         try:
-            resp = await client_openai.chat.completions.create(
+            resp = await client_openai.chat.completions.acreate(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -63,8 +62,9 @@ async def chat_openai(texto, retries=2):
         except Exception as e:
             print(f"Erro OpenAI gpt-4o tentativa {i+1}: {e}")
             await asyncio.sleep(1)
+    # fallback para gpt-3.5-turbo
     try:
-        resp = await client_openai.chat.completions.create(
+        resp = await client_openai.chat.completions.acreate(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
@@ -77,7 +77,7 @@ async def chat_openai(texto, retries=2):
 # --- Hugging Face ---
 async def chat_hf(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
-    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {"inputs": prompt}
     timeout = 20.0
     async with httpx.AsyncClient(timeout=timeout) as client:
