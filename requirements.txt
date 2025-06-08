@@ -1,17 +1,12 @@
-# Requisitos principais
-fastapi==0.109.1
-uvicorn==0.27.0
-python-dotenv==1.0.0
+fastapi==0.110.1
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+openai==1.30.3
+ai21==1.1.1
+transformers==4.41.1
+accelerate==0.30.1
+requests==2.31.0
 httpx==0.27.0
-
-# APIs de IA
-openai>=1.12.0  # Versão mais recente da API
-gtts==2.5.1  # Para síntese de voz
-
-# Gerenciamento de cache e utilitários
-shelve3==0.9.1
-python-dateutil==2.9.0.post0
-
-# Para deploy (opcional)
-gunicorn==21.2.0  # Se for usar no Render
-mangum==0.17.0  # Se for usar no Netlify
+gtts==2.5.1
+python-multipart==0.0.9
+torch==2.3.0
