@@ -5,18 +5,15 @@ import os
 import base64
 import tempfile
 import asyncio
-import httpx
 import shelve
 from datetime import datetime
-import openai
 from gtts import gTTS
+from openai import OpenAI
+from openai.error import OpenAIError
 
-# === Variáveis de ambiente ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or ""
 AI21_API_KEY = os.getenv("AI21_API_KEY") or ""
 HF_API_KEY = os.getenv("HF_API_KEY") or ""
-
-client_openai = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 app = FastAPI()
 app.add_middleware(
@@ -26,18 +23,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+client = OpenAI(api_key=OPENAI_API_KEY)
+
 class Mensagem(BaseModel):
     texto: str
 
-# === Modelos gratuitos confirmados ===
-HF_MODELS = [
-    "openai-community/gpt2"
-]
-
-AI21_MODELS = [
-    "j1-large",
-    "j1-jumbo",
-]
+HF_MODELS = ["openai-community/gpt2"]
+AI21_MODELS = ["j1-large", "j1-jumbo"]
 
 def limpa_resposta(texto, prompt):
     texto_lower = texto.lower().strip()
@@ -46,45 +38,55 @@ def limpa_resposta(texto, prompt):
         return texto[len(prompt):].strip()
     return texto.strip()
 
-# --- OpenAI ---
-async def chat_openai(texto, retries=2):
+async def chat_openai(texto):
     if not OPENAI_API_KEY:
         return ""
     prompt = f"Responda em português, por favor:\n{texto}"
-    for i in range(retries):
-        try:
-            resp = await client_openai.chat.completions.acreate(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            resposta = resp.choices[0].message.content.strip()
-            return limpa_resposta(resposta, prompt)
-        except Exception as e:
-            print(f"Erro OpenAI gpt-4o tentativa {i+1}: {e}")
-            await asyncio.sleep(1)
-    # fallback para gpt-3.5-turbo
     try:
-        resp = await client_openai.chat.completions.acreate(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=1000,
+            top_p=1,
+            n=1,
         )
-        resposta = resp.choices[0].message.content.strip()
+        resposta = response.choices[0].message.content.strip()
         return limpa_resposta(resposta, prompt)
-    except Exception as e:
-        print(f"Erro fallback OpenAI gpt-3.5-turbo: {e}")
-        return ""
+    except OpenAIError as e:
+        print(f"Erro OpenAI gpt-4o: {e}")
+        # Fallback gpt-3.5-turbo
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=1000,
+                top_p=1,
+                n=1,
+            )
+            resposta = response.choices[0].message.content.strip()
+            return limpa_resposta(resposta, prompt)
+        except Exception as e2:
+            print(f"Erro fallback OpenAI gpt-3.5-turbo: {e2}")
+            return ""
 
-# --- Hugging Face ---
+# As funções chat_hf e chat_ai21 podem ser as mesmas da versão anterior,
+# usando httpx para chamadas async, ou você pode usar requests e rodar em thread.
+
+# Exemplo simples de chat_hf com httpx:
+import httpx
+
 async def chat_hf(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {"inputs": prompt}
     timeout = 20.0
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with httpx.AsyncClient(timeout=timeout) as client_hf:
         for model in HF_MODELS:
             url = f"https://api-inference.huggingface.co/models/{model}"
             try:
-                r = await client.post(url, json=payload, headers=headers)
+                r = await client_hf.post(url, json=payload, headers=headers)
                 r.raise_for_status()
                 data = r.json()
                 if isinstance(data, list) and data:
@@ -95,12 +97,11 @@ async def chat_hf(texto):
                 continue
     return ""
 
-# --- AI21 ---
 async def chat_ai21(texto):
     prompt = f"Responda em português, por favor:\n{texto}"
     headers = {"Authorization": f"Bearer {AI21_API_KEY}", "Content-Type": "application/json"}
     timeout = 15.0
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with httpx.AsyncClient(timeout=timeout) as client_ai21:
         for model in AI21_MODELS:
             url = f"https://api.ai21.com/studio/v1/{model}/complete"
             payload = {
@@ -111,7 +112,7 @@ async def chat_ai21(texto):
                 "stopSequences": []
             }
             try:
-                r = await client.post(url, json=payload, headers=headers)
+                r = await client_ai21.post(url, json=payload, headers=headers)
                 r.raise_for_status()
                 data = r.json()
                 completions = data.get("completions", [])
@@ -181,4 +182,4 @@ async def oracao():
 
 @app.get("/")
 async def raiz():
-    return {"mensagem": "API Jesusinho está rodando com fallback inteligente! 🙌"}
+    return {"mensagem": "API Jesusinho rodando com fallback e .create() normal! 🙌"}
