@@ -54,12 +54,10 @@ class Mensagem(BaseModel):
         # Fallbacks
         async def call_openrouter():
             modelos = [
-                 "google/gemma-3-27b-it:free",
+                "google/gemma-3-27b-it:free",
                 "mistralai/devstral-small:free",
                 "google/gemini-2.0-flash-exp:free",
-                "deepseek/deepseek-chat-v3-0324:free",
-                "qwen/qwq-32b:free"
-                # Pode adicionar mais modelos aqui, separados por vírgula
+        
             ]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
@@ -128,7 +126,6 @@ class Mensagem(BaseModel):
                     except Exception as e:
                         print(f"AI21 falhou com {modelo}:", e)
 
-        # Ordem de fallback
         for func in [call_openrouter, call_huggingface, call_ai21]:
             resultado = await func()
             if resultado:
@@ -170,3 +167,8 @@ async def oracao():
 @app.get("/")
 async def raiz():
     return {"mensagem": "API Jesusinho está rodando! 🌟"}
+
+@app.post("/chat")
+async def chat(mensagem: Mensagem):
+    resposta = await mensagem.responder_ia(mensagem.texto)
+    return {"resposta": resposta}
