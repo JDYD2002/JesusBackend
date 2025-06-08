@@ -125,3 +125,8 @@ async def tts(request: Request):
         return {"audio": audio_base64}
     except Exception as e:
         return {"error": f"Erro no TTS: {str(e)}"}
+
+# === Rota raiz para evitar erro 404 ===
+@app.get("/")
+async def root():
+    return {"message": "Jesusinho está online ✝️"}
