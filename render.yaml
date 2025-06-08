@@ -13,9 +13,7 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       HF_API_KEY: ${{ secrets.HF_API_KEY }}
       AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
-      TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
 
-      HF_MODEL:   ${{ secrets.HF_MODEL }}
 
 
     steps:
