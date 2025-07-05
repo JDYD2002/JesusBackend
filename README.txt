@@ -1,25 +1,75 @@
-🎨 Frontend – Jesusinho Virtual (JavaScript, HTML, CSS)
-O frontend do Jesusinho Virtual foi desenvolvido com JavaScript puro, HTML e CSS, com o objetivo de criar uma interface simples, leve e intuitiva para interação com o assistente virtual.
+Jesusinho Virtual - Assistente Virtual Bíblico
 
-A aplicação permite que o usuário:
+Descrição
+Jesusinho Virtual é um assistente virtual desenvolvido durante o curso de Engenharia da Computação, que combina backend e frontend para oferecer interações espirituais dinâmicas. Ele responde perguntas, compartilha versículos e orações do dia, e possui integração de voz para uma experiência mais imersiva.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+O projeto é um ótimo exemplo de aplicação prática de tecnologias modernas, incluindo:
 
-Envie mensagens e perguntas para o assistente;
+Backend com FastAPI
 
-Visualize as respostas de forma dinâmica;
+Frontend responsivo em React (ou outra tecnologia que você usou)
 
-Veja o avatar do Jesusinho mudar de expressão conforme o tipo de resposta recebida (alegre, pensativo, triste etc.).
+Integração de APIs externas e de TTS (text-to-speech)
 
-O JavaScript é responsável por:
+Hospedagem em plataformas como Render e Netlify
 
-Capturar e enviar as mensagens para o backend via API RESTful;
+Gerenciamento de memória de conversa e fallback entre múltiplas IAs
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+Funcionalidades
+Resposta a perguntas com inteligência artificial
 
-Renderizar as respostas na tela em tempo real;
+Versículo do dia e oração do dia sob demanda
 
-Atualizar dinamicamente a imagem do Jesusinho com base no conteúdo da resposta;
+Voz sintetizada para leitura das mensagens (gTTS)
 
-Integrar com áudio (TTS), quando ativado.
+Interface responsiva e amigável com botão flutuante para ativação
 
-O visual foi pensado para ser acolhedor e responsivo, mantendo uma experiência amigável tanto em desktop quanto em dispositivos móveis.
+Memória de conversa para interação contínua
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+Tecnologias utilizadas:
+Python (FastAPI)
+
+JavaScript (React)
+
+HTML/CSS
+
+gTTS (Google Text-to-Speech)
+
+APIs de IA (OpenAI, Hugging Face, AI21)
+
+Hospedagem: Render, Netlify
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+Acesso ao projeto:
+Frontend Netlify: https://jesusinho.netlify.app/
+
+Backend Render: https://jesusinho-bot.onrender.com/
+
+Página GitHub Pages: https://jdyd2002.github.io/JD/
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+Como usar
+Acesse o site pelo link do Netlify.
+
+Clique no botão flutuante para abrir o assistente Jesusinho.
+
+Interaja por texto e ouça as respostas com voz sintetizada.
+
+Explore versículos e orações do dia clicando nos botões correspondentes.
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+Próximos passos / melhorias futuras
+Tornar o backend mais robusto para alta disponibilidade
+
+Melhorar a interface gráfica e UX
+
+Implementar suporte offline e PWA
+
+Adicionar mais idiomas e personalizações de voz
+
+Contato
+Para dúvidas, sugestões ou contribuições, entre em contato:
+📧 Felipebraga233@gmail.com
+📞 +55 (91) 98536-4746
+
+Obrigado por visitar!
 .
 .
 .
