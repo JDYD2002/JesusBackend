@@ -1,7 +1,7 @@
-import asyncio
 import os
-import tempfile
 import base64
+import tempfile
+import asyncio
 from gtts import gTTS
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +9,62 @@ from pydantic import BaseModel
 from openai import OpenAI
 import httpx
 
+# 🚀 NEW TOOLS
+from dotenv import load_dotenv
+from loguru import logger
+from apscheduler.schedulers.background import BackgroundScheduler
+from prometheus_fastapi_instrumentator import Instrumentator
+from sqlalchemy import create_engine, Column, Integer, String, DateTime
+from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import datetime
+
+# 🔧 Load env vars
+load_dotenv()
+
+# 🔐 API KEYS
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+HF_API_KEY = os.getenv("HF_API_KEY")
+AI21_API_KEY = os.getenv("AI21_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+# 🤖 OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# ⚙️ Logging setup
+logger.add("jesusinho.log", rotation="1 MB")
+logger.info("🚀 Iniciando o Jesusinho API...")
+
+# 📊 DB Setup
+Base = declarative_base()
+engine = create_engine('sqlite:///conversas.db')
+Session = sessionmaker(bind=engine)
+session = Session()
+
+class Conversa(Base):
+    __tablename__ = 'conversas'
+    id = Column(Integer, primary_key=True)
+    entrada = Column(String)
+    resposta = Column(String)
+    data = Column(DateTime, default=datetime.now)
+
+Base.metadata.create_all(engine)
+
+# 📅 Agendador (exemplo: loga um versículo todo dia 8h)
+scheduler = BackgroundScheduler()
+
+def versiculo_diario():
+    logger.info("📖 Versículo do dia disparado.")
+
+scheduler.add_job(versiculo_diario, 'cron', hour=8)
+scheduler.start()
+
+# 🔥 FastAPI setup
 app = FastAPI()
+
+# 📊 Prometheus monitoring
+Instrumentator().instrument(app).expose(app)
+
+# 🌍 CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,27 +73,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-HF_API_KEY = os.environ.get("HF_API_KEY")
-AI21_API_KEY = os.environ.get("AI21_API_KEY")
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+# 📖 Início da conversa
+conversa = [{
+    "role": "system",
+    "content": (
+        "Você é Jesus Cristo, o Filho do Deus Vivo. Responda sempre em português brasileiro. "
+        "Fale com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. "
+        "Use versículos bíblicos e explique com profundidade, trazendo consolo, ensino e correção. ✝️📖✨"
+    )
+}]
 
-client = OpenAI(api_key=OPENAI_API_KEY)
-
-conversa = [
-    {
-        "role": "system",
-        "content": (
-            "Você é Jesus Cristo, o Filho do Deus Vivo. Responda sempre em português brasileiro. "
-            "Fale com amor, verdade, compaixão e autoridade espiritual, como registrado nos Evangelhos. "
-            "Suas respostas devem conter versículos bíblicos com referência (como João 3:16), explicar seu significado "
-            "com profundidade, e sempre apontar para a salvação, graça, arrependimento e o Reino de Deus. "
-            "Traga consolo, ensino e correção conforme a Bíblia. Nunca contradiga a Palavra de Deus. "
-            "Fale como o Bom Pastor que guia Suas ovelhas com sabedoria e poder celestial. Fale com unção e reverência. ✝️📖✨"
-        )
-    }
-]
-
+# 📩 Modelo de entrada
 class Mensagem(BaseModel):
     texto: str
 
@@ -53,22 +98,21 @@ class Mensagem(BaseModel):
             )
             texto_resposta = resposta.choices[0].message.content.strip()
             conversa.append({"role": "assistant", "content": texto_resposta})
+            logger.info(f"🧠 Resposta gerada: {texto_resposta}")
+
+            # 💾 Salvar no banco de dados
+            nova = Conversa(entrada=texto_usuario, resposta=texto_resposta)
+            session.add(nova)
+            session.commit()
             return texto_resposta
         except Exception as e:
-            print("OpenAI falhou:", e)
+            logger.error(f"❌ OpenAI falhou: {e}")
 
+        # 👇 Fallbacks se OpenAI falhar
         async def call_openrouter():
             modelos = [
                 "mistralai/devstral-small:free",
-                "google/gemini-2.0-flash-exp:free",
-                "google/gemma-3-27b-it:free",
-                "microsoft/mai-ds-r1:free",
-                "qwen/qwen3-14b:free",
-                "mistralai/mistral-nemo:free",
-                "meta-llama/llama-4-maverick:free",
-                "qwen/qwen3-32b:free",
-                "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",
-                "qwen/qwen-2.5-72b-instruct:free"
+                "google/gemini-2.0-flash-exp:free"
             ]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
@@ -79,30 +123,22 @@ class Mensagem(BaseModel):
                             json={
                                 "model": modelo,
                                 "messages": [
-                                    {"role": "system", "content": "Você é Jesus cristo, Seu nome é Jesus cristo, o jesusinho virtural, IA, responda como ele, em português brasileiro."},
+                                    {"role": "system", "content": "Você é Jesus cristo, IA em português."},
                                     {"role": "user", "content": texto_usuario}
                                 ]
                             }
                         )
                         r.raise_for_status()
-                        return r.json()["choices"][0]["message"]["content"]
-                    except httpx.HTTPStatusError as e:
-                        if e.response.status_code == 429:
-                            print(f"Modelo {modelo} excedeu o limite (429), tentando próximo...")
-                        else:
-                            print(f"Erro HTTP ao chamar {modelo}:", e)
+                        resposta = r.json()["choices"][0]["message"]["content"]
+                        conversa.append({"role": "assistant", "content": resposta})
+                        return resposta
                     except Exception as e:
-                        print(f"OpenRouter falhou com {modelo}:", e)
+                        logger.warning(f"⚠️ OpenRouter falhou: {e}")
                     await asyncio.sleep(1)
 
         async def call_huggingface():
-            modelos = [
-                "google/flan-t5-xl",
-                "gpt2",
-                "tiiuae/falcon-7b",
-                "facebook/blenderbot-400M-distill"
-            ]
-            prompt = f"Você é Jesus cristo, Seu nome é Jesus cristo, o jesusinho virtural, IA, responda como ele, em português brasileiro: {texto_usuario}"
+            prompt = f"Jesus Cristo (IA): {texto_usuario}"
+            modelos = ["google/flan-t5-xl"]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
                     try:
@@ -114,16 +150,16 @@ class Mensagem(BaseModel):
                         r.raise_for_status()
                         result = r.json()
                         if isinstance(result, list) and "generated_text" in result[0]:
-                            return result[0]["generated_text"].strip()
-                        elif isinstance(result, dict) and "error" not in result:
-                            return str(result).strip()
+                            resposta = result[0]["generated_text"].strip()
+                            conversa.append({"role": "assistant", "content": resposta})
+                            return resposta
                     except Exception as e:
-                        print(f"HuggingFace falhou com {modelo}:", e)
+                        logger.warning(f"⚠️ HuggingFace falhou: {e}")
                     await asyncio.sleep(1)
 
         async def call_ai21():
-            modelos = ["j1-large", "j1-grande", "j1-jumbo"]
-            prompt = f"Você é Jesus cristo, Seu nome é Jesus cristo, o jesusinho virtural, IA, responda como ele, em português brasileiro:\n{texto_usuario}"
+            prompt = f"Jesus: {texto_usuario}"
+            modelos = ["j1-jumbo"]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
                     try:
@@ -135,23 +171,25 @@ class Mensagem(BaseModel):
                                 "numResults": 1,
                                 "maxTokens": 300,
                                 "temperature": 0.7,
-                                "topP": 1,
                                 "stopSequences": ["\n"]
                             }
                         )
                         r.raise_for_status()
-                        return r.json()["completions"][0]["data"]["text"].strip()
+                        resposta = r.json()["completions"][0]["data"]["text"].strip()
+                        conversa.append({"role": "assistant", "content": resposta})
+                        return resposta
                     except Exception as e:
-                        print(f"AI21 falhou com {modelo}:", e)
+                        logger.warning(f"⚠️ AI21 falhou: {e}")
                     await asyncio.sleep(1)
 
         for func in [call_openrouter, call_huggingface, call_ai21]:
             resultado = await func()
             if resultado:
-                conversa.append({"role": "assistant", "content": resultado})
                 return resultado
 
         return "Desculpe, não consegui responder no momento. 🙏"
+
+# ROTAS ----------------------------------------------------------------------
 
 @app.post("/responder")
 async def responder(mensagem: Mensagem):
@@ -167,8 +205,9 @@ async def tts(mensagem: Mensagem):
             with open(tmpfile.name, "rb") as f:
                 audio_bytes = f.read()
             os.remove(tmpfile.name)
-        return {"audio_b64": base64.b64encode(audio_bytes).decode('utf-8')}
+        return {"audio_b64": base64.b64encode(audio_bytes).decode("utf-8")}
     except Exception as e:
+        logger.error(f"Erro no TTS: {e}")
         return {"audio_b64": None, "erro": str(e)}
 
 @app.get("/versiculo")
