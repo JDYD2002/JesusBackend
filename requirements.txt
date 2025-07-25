@@ -10,3 +10,10 @@ httpx==0.27.0
 gtts==2.5.1
 python-multipart==0.0.9
 torch==2.3.0
+
+# Tools extras para melhorias no projeto
+python-dotenv==1.0.1         # Gerenciar variáveis de ambiente via .env
+loguru==0.7.2                # Logging moderno e colorido
+apscheduler==3.10.4          # Tarefas agendadas (ex: versículo do dia automático)
+sqlalchemy==2.0.30           # ORM para banco de dados, se quiser persistir memória
+prometheus-fastapi-instrumentator==6.1.0  # Métricas e monitoramento com Prometheus
