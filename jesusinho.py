@@ -111,8 +111,8 @@ class Mensagem(BaseModel):
         # 👇 Fallbacks se OpenAI falhar
         async def call_openrouter():
             modelos = [
-                 "google/gemini-2.0-flash-exp:free"
-                "z-ai/glm-4.5-air:free".
+                 "google/gemini-2.0-flash-exp:free",
+                "z-ai/glm-4.5-air:free",
                 "mistralai/devstral-small:free",
               
             ]
@@ -226,4 +226,5 @@ async def oracao():
 @app.get("/")
 async def raiz():
     return {"mensagem": "API Jesusinho está rodando! 🌟"}
+
 
