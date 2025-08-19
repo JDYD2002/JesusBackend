@@ -111,10 +111,17 @@ class Mensagem(BaseModel):
         # 👇 Fallbacks se OpenAI falhar
         async def call_openrouter():
             modelos = [
-                 "google/gemini-2.0-flash-exp:free",
-                "z-ai/glm-4.5-air:free",
-                "mistralai/devstral-small:free",
-              
+                 "mistralai/devstral-small:free",
+                "google/gemini-2.0-flash-exp:free",
+                "google/gemma-3-27b-it:free",
+                "microsoft/mai-ds-r1:free"
+                  "qwen/qwen3-14b:free"
+                "mistralai/mistral-nemo:free"
+                "meta-llama/llama-4-maverick:free"
+                "qwen/qwen3-32b:free"
+                "nvidia/llama-3.1-nemotron-ultra-253b-v1:free"
+                "qwen/qwen-2.5-72b-instruct:free"
+                # Pode adicionar mais modelos aqui, separados por vírgula
             ]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
@@ -140,7 +147,11 @@ class Mensagem(BaseModel):
 
         async def call_huggingface():
             prompt = f"Jesus Cristo (IA): {texto_usuario}"
-            modelos = ["google/flan-t5-xl"]
+            modelos = [   
+                "HuggingFaceH4/zephyr-7b-beta"
+                "meta-llama/Llama-3.2-1B-Instruct"
+             "microsoft/Phi-3.5-mini-instruct"
+                "unsloth/Llama-3.2-1B-Instruct"]
             async with httpx.AsyncClient() as cli:
                 for modelo in modelos:
                     try:
@@ -226,5 +237,6 @@ async def oracao():
 @app.get("/")
 async def raiz():
     return {"mensagem": "API Jesusinho está rodando! 🌟"}
+
 
 
