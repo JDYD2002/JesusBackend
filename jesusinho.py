@@ -87,8 +87,11 @@ conversa = [{
 class Mensagem(BaseModel):
     texto: str
 
-    async def responder_ia(self, texto_usuario):
+    async def responder_ia(self, texto_usuario: str):
+        # Adiciona input do usuário na conversa
         conversa.append({"role": "user", "content": texto_usuario})
+
+        # --- 1️⃣ OpenAI ---
         try:
             resposta = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -98,32 +101,33 @@ class Mensagem(BaseModel):
             )
             texto_resposta = resposta.choices[0].message.content.strip()
             conversa.append({"role": "assistant", "content": texto_resposta})
-            logger.info(f"🧠 Resposta gerada: {texto_resposta}")
 
-            # 💾 Salvar no banco de dados
-            nova = Conversa(entrada=texto_usuario, resposta=texto_resposta)
-            session.add(nova)
-            session.commit()
+            # Salvar no banco de dados
+            with Session() as db_session:
+                nova = Conversa(entrada=texto_usuario, resposta=texto_resposta)
+                db_session.add(nova)
+                db_session.commit()
+
+            logger.info(f"🧠 Resposta OpenAI: {texto_resposta}")
             return texto_resposta
         except Exception as e:
             logger.error(f"❌ OpenAI falhou: {e}")
 
-        # 👇 Fallbacks se OpenAI falhar
+        # --- 2️⃣ Fallback OpenRouter ---
         async def call_openrouter():
             modelos = [
-                 "mistralai/devstral-small:free",
+                "mistralai/devstral-small:free",
                 "google/gemini-2.0-flash-exp:free",
                 "google/gemma-3-27b-it:free",
-                "microsoft/mai-ds-r1:free"
-                  "qwen/qwen3-14b:free"
-                "mistralai/mistral-nemo:free"
-                "meta-llama/llama-4-maverick:free"
-                "qwen/qwen3-32b:free"
-                "nvidia/llama-3.1-nemotron-ultra-253b-v1:free"
-                "qwen/qwen-2.5-72b-instruct:free"
-                # Pode adicionar mais modelos aqui, separados por vírgula
+                "microsoft/mai-ds-r1:free",
+                "qwen/qwen3-14b:free",
+                "mistralai/mistral-nemo:free",
+                "meta-llama/llama-4-maverick:free",
+                "qwen/qwen3-32b:free",
+                "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",
+                "qwen/qwen-2.5-72b-instruct:free",
             ]
-            async with httpx.AsyncClient() as cli:
+            async with httpx.AsyncClient(timeout=15) as cli:
                 for modelo in modelos:
                     try:
                         r = await cli.post(
@@ -132,27 +136,31 @@ class Mensagem(BaseModel):
                             json={
                                 "model": modelo,
                                 "messages": [
-                                    {"role": "system", "content": "Você é Jesus cristo, IA em português."},
+                                    {"role": "system", "content": "Você é Jesus Cristo, IA em português."},
                                     {"role": "user", "content": texto_usuario}
                                 ]
                             }
                         )
                         r.raise_for_status()
-                        resposta = r.json()["choices"][0]["message"]["content"]
+                        resp_json = r.json()
+                        resposta = resp_json["choices"][0]["message"]["content"].strip()
                         conversa.append({"role": "assistant", "content": resposta})
                         return resposta
-                    except Exception as e:
-                        logger.warning(f"⚠️ OpenRouter falhou: {e}")
+                    except httpx.HTTPStatusError as e:
+                        logger.warning(f"⚠️ OpenRouter {modelo} falhou: {e}")
                     await asyncio.sleep(1)
+            return None
 
+        # --- 3️⃣ Fallback HuggingFace ---
         async def call_huggingface():
             prompt = f"Jesus Cristo (IA): {texto_usuario}"
-            modelos = [   
-                "HuggingFaceH4/zephyr-7b-beta"
-                "meta-llama/Llama-3.2-1B-Instruct"
-             "microsoft/Phi-3.5-mini-instruct"
-                "unsloth/Llama-3.2-1B-Instruct"]
-            async with httpx.AsyncClient() as cli:
+            modelos = [
+                "HuggingFaceH4/zephyr-7b-beta",
+                "meta-llama/Llama-3.2-1B-Instruct",
+                "microsoft/Phi-3.5-mini-instruct",
+                "unsloth/Llama-3.2-1B-Instruct"
+            ]
+            async with httpx.AsyncClient(timeout=20) as cli:
                 for modelo in modelos:
                     try:
                         r = await cli.post(
@@ -166,40 +174,43 @@ class Mensagem(BaseModel):
                             resposta = result[0]["generated_text"].strip()
                             conversa.append({"role": "assistant", "content": resposta})
                             return resposta
-                    except Exception as e:
-                        logger.warning(f"⚠️ HuggingFace falhou: {e}")
+                    except httpx.HTTPStatusError as e:
+                        logger.warning(f"⚠️ HuggingFace {modelo} falhou: {e}")
                     await asyncio.sleep(1)
+            return None
 
+        # --- 4️⃣ Fallback AI21 ---
         async def call_ai21():
             prompt = f"Jesus: {texto_usuario}"
-            modelos = ["j1-jumbo"]
-            async with httpx.AsyncClient() as cli:
-                for modelo in modelos:
-                    try:
-                        r = await cli.post(
-                            f"https://api.ai21.com/studio/v1/{modelo}/complete",
-                            headers={"Authorization": f"Bearer {AI21_API_KEY}"},
-                            json={
-                                "prompt": prompt,
-                                "numResults": 1,
-                                "maxTokens": 300,
-                                "temperature": 0.7,
-                                "stopSequences": ["\n"]
-                            }
-                        )
-                        r.raise_for_status()
-                        resposta = r.json()["completions"][0]["data"]["text"].strip()
-                        conversa.append({"role": "assistant", "content": resposta})
-                        return resposta
-                    except Exception as e:
-                        logger.warning(f"⚠️ AI21 falhou: {e}")
-                    await asyncio.sleep(1)
+            modelo = "j1-jumbo"
+            async with httpx.AsyncClient(timeout=20) as cli:
+                try:
+                    r = await cli.post(
+                        f"https://api.ai21.com/studio/v1/{modelo}/complete",
+                        headers={"Authorization": f"Bearer {AI21_API_KEY}"},
+                        json={
+                            "prompt": prompt,
+                            "numResults": 1,
+                            "maxTokens": 300,
+                            "temperature": 0.7,
+                            "stopSequences": ["\n"]
+                        }
+                    )
+                    r.raise_for_status()
+                    resposta = r.json()["completions"][0]["data"]["text"].strip()
+                    conversa.append({"role": "assistant", "content": resposta})
+                    return resposta
+                except httpx.HTTPStatusError as e:
+                    logger.warning(f"⚠️ AI21 falhou: {e}")
+            return None
 
+        # --- Executa fallbacks em ordem ---
         for func in [call_openrouter, call_huggingface, call_ai21]:
             resultado = await func()
             if resultado:
                 return resultado
 
+        # --- Nenhum serviço respondeu ---
         return "Desculpe, não consegui responder no momento. 🙏"
 
 # ROTAS ----------------------------------------------------------------------
@@ -237,6 +248,7 @@ async def oracao():
 @app.get("/")
 async def raiz():
     return {"mensagem": "API Jesusinho está rodando! 🌟"}
+
 
 
 
